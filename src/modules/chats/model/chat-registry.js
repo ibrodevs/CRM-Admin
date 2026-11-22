@@ -41,3 +41,29 @@ export function mergeChatMessages(current, incoming) {
   const next = [...byId.values()].sort((a, b) => (Date.parse(a.createdAt) || 0) - (Date.parse(b.createdAt) || 0));
   return current.length === next.length && next.every((message, index) => message === current[index]) ? current : next;
 }
+
+
+const shortMonth = date => date.toLocaleDateString('ru-RU', { month: 'short', timeZone: 'UTC' }).replace(/\.$/, '');
+export function chatRegistryContext(thread) {
+  const title = String(thread.route || '').split(' · ').filter(part => !/^Город(?: вылета| прилёта)? не указан$/i.test(part.trim())).join(' · ');
+  const dates = [...new Set(String(thread.tripDates || '').match(/\b\d{2}\.\d{2}\.\d{4}\b/g) || [])]
+    .map(value => new Date(value.replace(/(\d{2})\.(\d{2})\.(\d{4})/, '$3-$2-$1') + 'T00:00:00Z'))
+    .filter(date => Number.isFinite(date.getTime())).sort((a,b) => a-b);
+  let dateLabel = '';
+  if (dates.length) {
+    const first = dates[0], last = dates.at(-1);
+    const day = date => date.getUTCDate();
+    const full = date => `${day(date)} ${shortMonth(date)} ${date.getUTCFullYear()}`;
+    dateLabel = +first === +last ? full(first) : first.getUTCFullYear() !== last.getUTCFullYear() ? `${full(first)} — ${full(last)}`
+      : first.getUTCMonth() === last.getUTCMonth() ? `${day(first)}–${day(last)} ${shortMonth(last)} ${last.getUTCFullYear()}`
+      : `${day(first)} ${shortMonth(first)} — ${full(last)}`;
+  }
+  return { title, dates: dateLabel || thread.tripDates || '' };
+}
+
+export function chatActivityLabel(value, now = new Date()) {
+  const date = new Date(value);
+  if (!value || !Number.isFinite(date.getTime())) return '';
+  if (date.toDateString() === now.toDateString()) return date.toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'});
+  return date.toLocaleDateString('ru-RU', {day:'numeric',month:'short', ...(date.getFullYear() !== now.getFullYear() ? { year:'numeric' } : {})});
+}

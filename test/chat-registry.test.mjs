@@ -45,3 +45,16 @@ test('registry includes actual trip dates from related services and omits missin
   assert.match(result.route,/Москва → Казань/);
   assert.equal(enrichChatThread(thread,{orders,services}).tripDates,'');
 });
+
+const { chatRegistryContext, chatActivityLabel } = await import('../src/modules/chats/model/chat-registry.js');
+test('compact trip context removes missing-city filler and deduplicates dates across hotel and flight services', () => {
+  const context = chatRegistryContext({ route: 'Город не указан · Мастер-Отель Первомайская', tripDates: '18.09.2026 → 22.09.2026 · 18.09.2026 • 18:06 → 22.09.2026 • 20:06' });
+  assert.equal(context.title, 'Мастер-Отель Первомайская');
+  assert.match(context.dates, /^18–22 сент\.? 2026$/);
+});
+test('compact date ranges preserve month and year boundaries', () => {
+  assert.match(chatRegistryContext({ tripDates: '24.11.2026 → 02.12.2026' }).dates, /24 нояб.*2 дек.*2026/);
+  assert.match(chatRegistryContext({ tripDates: '31.12.2026 → 02.01.2027' }).dates, /2026.*2027/);
+  assert.equal(chatRegistryContext({}).dates, '');
+  assert.equal(chatActivityLabel('invalid'), '');
+});

@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire, Module } from 'node:module';
 import { readFileSync } from 'node:fs';
+import { chatRegistryContext, chatActivityLabel } from '../src/modules/chats/model/chat-registry.js';
 const require=createRequire(import.meta.url),babel=require('next/dist/compiled/babel/core');
 const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n?.props?[n,...nodes(n.props.children)]:[];
 function harness(){let cursor=0;const cells=[];const react={...require('react'),useState(initial){const i=cursor++;if(!(i in cells))cells[i]=initial;return[cells[i],v=>cells[i]=typeof v==='function'?v(cells[i]):v];},useRef(initial){const i=cursor++;return cells[i]??=( {current:initial} );},useEffect(){}};
-const bindings={threadUnread:t=>t.unread||0,lastMessage:t=>t.last||'Сообщений пока нет',chatTypeMeta:()=>({}),orderRef:v=>v,CHAT_TYPES:[],formatDateTime:v=>v,chatServiceById(){},serviceSummary(){},...Object.fromEntries(['Icon','Avatar','ChannelBadge','Button','EmptyState','ActionMenu','SearchBox','Select'].map(n=>[n,n]))};const source=readFileSync(new URL('../src/modules/chats/ui/ChatsPage.jsx',import.meta.url),'utf8');const body=source.slice(source.indexOf('const knownOrder'),source.indexOf('function ChatsPage'));
+const bindings={chatRegistryContext,chatActivityLabel,threadUnread:t=>t.unread||0,lastMessage:t=>t.last||'Сообщений пока нет',chatTypeMeta:()=>({}),orderRef:v=>v,CHAT_TYPES:[],formatDateTime:v=>v,chatServiceById(){},serviceSummary(){},...Object.fromEntries(['Icon','Avatar','ChannelBadge','Button','EmptyState','ActionMenu','SearchBox','Select'].map(n=>[n,n]))};const source=readFileSync(new URL('../src/modules/chats/ui/ChatsPage.jsx',import.meta.url),'utf8');const body=source.slice(source.indexOf('const knownOrder'),source.indexOf('function ChatsPage'));
 const mod=new Module(import.meta.filename);mod.require=n=>n==='react'?react:n==='bindings'?bindings:require(n);mod._compile(babel.transformSync(`import {useState,useEffect,useRef} from 'react';import {${Object.keys(bindings)}} from 'bindings';${body};export {ChatsNav};`,{filename:'ChatsNav.jsx',presets:['next/babel'],configFile:false,babelrc:false,envName:'test'}).code,import.meta.filename);return props=>{cursor=0;return mod.exports.ChatsNav(props);};}
 
 test('registry progressively exposes all chats and archive actions never open the conversation',()=>{

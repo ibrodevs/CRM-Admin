@@ -1,5 +1,5 @@
 import { UnifiedBindPicker } from '../../clients/index.js';
-import { enrichChatThread, chatUnread, mergeChatMessages } from '../model/chat-registry.js';
+import { enrichChatThread, chatUnread, mergeChatMessages, chatRegistryContext, chatActivityLabel } from '../model/chat-registry.js';
 import { useDraftState } from '../../../shared/drafts/Drafts.jsx';
 import { ServicePreview } from '../../../shared/ui/ServicePreview.jsx';
 import { serviceSummary } from '../../../shared/lib/service-presentation.js';
@@ -952,16 +952,24 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 
   const Row = (t) => {
     const u = threadUnread(t);
+    const context = chatRegistryContext(t);
+    const preview = lastMessage(t);
+    const noMessages = preview === 'Сообщений пока нет';
     return (
-      <div key={t.id} role="button" tabIndex={0} onClick={() => onSelect(t.id)} onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(t.id); } }} className={'chat-row chat-registry-row' + (t.id === activeId ? ' active' : '')} aria-label={`${t.name}, ${t.order || 'без заказа'}`}>
-        <Avatar name={t.name} size={36} />
-        <div className="chat-registry-row-main">
-          <div className="chat-registry-row-heading"><strong title={t.name}>{t.pinned && <Icon name="star" />}{t.name}</strong>{knownOrder(t.order) && <span>№ {orderRef(t.order)}</span>}</div>
-          <div className="chat-registry-itinerary" title={[t.route, t.tripDates].filter(Boolean).join(' · ')}><span>{t.route || 'Маршрут не указан'}</span><span>{t.tripDates || 'Даты поездки не указаны'}</span></div>
-          <div className="chat-registry-row-preview"><ChannelBadge channel={t.channel} sm /><span title={lastMessage(t)}>{lastMessage(t)}</span>{t.time && <time>{formatDateTime(t.time)}</time>}</div>
+      <div key={t.id} role="button" tabIndex={0} onClick={() => onSelect(t.id)} onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(t.id); } }} className={'chat-row chat-registry-row' + (t.id === activeId ? ' active' : '') + (u ? ' has-unread' : '')} aria-label={`${t.name}, ${t.order || 'без заказа'}`}>
+        <div className="chat-registry-identity">
+          <Avatar name={t.name} size={36} />
+          <div><strong title={t.name}>{t.pinned && <Icon name="star" />}<span>{t.name}</span></strong><span>{knownOrder(t.order) ? `Заказ № ${orderRef(t.order)}` : chatTypeMeta(t.type).label || 'Переписка'}</span></div>
         </div>
+        <div className="chat-registry-trip" title={[t.route, t.tripDates].filter(Boolean).join(' · ')}>
+          {context.title ? <><span className="chat-registry-route">{context.title}</span>{context.dates && <span className="chat-registry-dates"><Icon name="calendar" />{context.dates}</span>}</> : <span className="chat-registry-muted">Поездка не добавлена</span>}
+        </div>
+        <div className={'chat-registry-message' + (noMessages ? ' is-empty' : '')}>
+          {t.channel && !/^crm$/i.test(t.channel) && <ChannelBadge channel={t.channel} sm />}
+          <span title={preview}>{noMessages ? 'Нет сообщений' : preview}</span>
+        </div>
+        <div className="chat-registry-row-meta">{t.time && <time dateTime={t.time} title={formatDateTime(t.time)}>{chatActivityLabel(t.time)}</time>}{u > 0 && <span className="chat-registry-unread" aria-label={`Новых сообщений: ${u}`}>{u > 99 ? '99+' : u}</span>}</div>
         <div className="chat-registry-row-actions" onClick={(event) => event.stopPropagation()}>
-          {u > 0 && <span className="chat-registry-unread" aria-label={`Новых сообщений: ${u}`}>{u > 99 ? '99+' : u}</span>}
           {onArchive && <button type="button" className="chat-registry-archive" disabled={archivingId === t.id} aria-label={t.is_archived ? 'Вернуть чат из архива' : 'Архивировать чат'} title={t.is_archived ? 'Вернуть из архива' : 'В архив'} onClick={() => onArchive(t, !t.is_archived)}><Icon name={t.is_archived ? 'chevLeft' : 'inbox'} /></button>}
         </div>
       </div>
@@ -970,32 +978,26 @@ function ChatsNav({ threads, activeId, onSelect, search, setSearch, mode, setMod
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)' }}>
-        <div className="chat-registry-summary"><Select aria-label="Папка чатов" value={folder} onChange={(event) => setFolder(event.target.value)} options={[{ value: 'active', label: `Активные · ${threads.filter((thread) => !thread.is_archived).length}` }, { value: 'archive', label: `Архив · ${threads.filter((thread) => thread.is_archived).length}` }, { value: 'all', label: `Все чаты · ${threads.length}` }]} /><span>Чатов: <b>{threads.length}</b></span><span>Новых сообщений: <b>{unreadTotal}</b></span><button type="button" className={'chip' + (unreadOnly ? ' active' : ' ghost')} aria-pressed={unreadOnly} onClick={() => setUnreadOnly((value) => !value)}>Непрочитанные · {unreadChats}</button></div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <SearchBox value={search} onChange={setSearch} placeholder="Поиск чатов…" style={{ flex: 1, minWidth: 0 }} />
-          <div className="trip-toggle" style={{ display: 'flex', flexShrink: 0, padding: 3 }}>
-            <button className={mode === 'byType' ? 'on' : ''} style={{ padding: '6px 9px', fontSize: 12 }} onClick={() => setMode('byType')}>Тип</button>
-            <button className={mode === 'byService' ? 'on' : ''} style={{ padding: '6px 9px', fontSize: 12 }} onClick={() => setMode('byService')}>Услуга</button>
+      <div className="chat-registry-toolbar">
+        <div className="chat-registry-summary">
+          <Select aria-label="Папка чатов" value={folder} onChange={(event) => setFolder(event.target.value)} options={[{ value: 'active', label: 'Активные' }, { value: 'archive', label: 'Архив' }, { value: 'all', label: 'Все чаты' }]} />
+          <button type="button" className={'chip' + (unreadOnly ? ' active' : ' ghost')} aria-pressed={unreadOnly} onClick={() => setUnreadOnly((value) => !value)}>Непрочитанные <span>{unreadChats}</span></button>
+          <span className="chat-registry-counter">Чатов: {filtered.length}{unreadTotal > 0 && ` · Новых сообщений: ${unreadTotal}`}</span>
+        </div>
+        <div className="chat-registry-filters">
+          <SearchBox value={search} onChange={setSearch} placeholder="Клиент, заказ или сообщение" />
+          {mode === 'byType' && <div className="chat-registry-type-filter"><ActionMenu trigger={
+            <button type="button" className="chip ghost"><span>{TYPE_FILTERS.find((f) => f.key === typeFilter).label}</span><Icon name="chevDown" /></button>
+          } items={TYPE_FILTERS.map((f) => ({
+            icon: typeFilter === f.key ? 'check' : null,
+            label: f.label + ' · ' + (f.key === 'all' ? searched.length : typeCount(f.key)),
+            onClick: () => setTypeFilter(f.key),
+          }))} /></div>}
+          <div className="trip-toggle chat-registry-grouping" role="group" aria-label="Группировка чатов">
+            <button type="button" className={mode === 'byType' ? 'on' : ''} aria-pressed={mode === 'byType'} onClick={() => setMode('byType')}>По типу</button>
+            <button type="button" className={mode === 'byService' ? 'on' : ''} aria-pressed={mode === 'byService'} onClick={() => setMode('byService')}>По услуге</button>
           </div>
         </div>
-        {mode === 'byType' && (
-          <div style={{ marginTop: 7 }}>
-            <ActionMenu trigger={
-              <button className="chip ghost" style={{ height: 30, fontSize: 12, width: '100%', justifyContent: 'space-between' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {TYPE_FILTERS.find((f) => f.key === typeFilter).label}
-                  <span style={{ fontWeight: 700, color: 'var(--blue)' }}>{typeFilter === 'all' ? searched.length : typeCount(typeFilter)}</span>
-                </span>
-                <Icon name="chevDown" />
-              </button>
-            } items={TYPE_FILTERS.map((f) => ({
-              icon: typeFilter === f.key ? 'check' : null,
-              label: f.label + ' · ' + (f.key === 'all' ? searched.length : typeCount(f.key)) + ' · новых сообщений: ' + searched.filter((thread) => f.key === 'all' || thread.type === f.key).reduce((sum, thread) => sum + threadUnread(thread), 0),
-              onClick: () => setTypeFilter(f.key),
-            }))} />
-          </div>
-        )}
       </div>
       <div className="chat-registry-list">
         {mode === 'byService'
