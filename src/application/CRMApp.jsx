@@ -79,7 +79,9 @@ function App() {
   useDraftNavigation((draft, store) => {
     const target = draft.type === 'free-booking' ? 'dashboard' : draft.type === 'order' || draft.type === 'new-order' ? 'orders' : draft.route;
     if (!auth.user || !target || !roleCanSee(role, target)) { toast('Нет доступа к разделу с этим черновиком', 'warn'); return false; }
-    if (draft.type === 'order') {
+    if (draft.proposalId) {
+      setRoute('offers'); setIntent({ type: 'open', id: draft.proposalId }); setCtxOrder(null);
+    } else if (draft.type === 'order') {
       const order = orders.find((item) => String(item.id) === String(draft.orderId));
       if (!order) { toast('Заказ не найден среди доступных. Обновите список заказов или проверьте доступ.', 'warn'); return false; }
       openOrder(order);

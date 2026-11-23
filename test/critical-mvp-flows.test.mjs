@@ -13,7 +13,7 @@ const legacyAdapters = await readFile(new URL('../src/legacy/adapters/legacy-ada
 test('свободное КП открывается в редакторе и сохраняется через backend', () => {
   assert.match(offers, /function StandaloneKPEditor/);
   assert.match(offers, /proposalsApi\.replaceDraft\(draft\.serverId/);
-  assert.match(offers, /if \(mode === 'draft' && !np\.order\) setEditTarget\(np\)/);
+  assert.match(offers, /setEditTarget\(np\)/);
   assert.match(offers, /title="Связать КП с заказом"/);
 });
 

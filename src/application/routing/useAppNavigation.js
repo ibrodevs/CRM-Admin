@@ -26,6 +26,8 @@ export function useAppNavigation() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [ctxOrder, setCtxOrder] = useState(null);
   const navigate = (r) => {
+    const proposalMatch = r.match(/^offers\/([a-f0-9-]{36})$/i);
+    if (proposalMatch) { setRoute('offers'); setIntent({ type: 'open', id: proposalMatch[1] }); setCtxOrder(null); return; }
     const b = r.split('/')[0];
     setRoute(r);
     setCtxOrder(null);

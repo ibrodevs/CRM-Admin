@@ -146,7 +146,7 @@ function ChannelIcon({ channel, size = 15, style }) {
   return <Icon name="chat" style={{ width: size, height: size, flexShrink: 0, color: 'var(--blue)', ...style }} />;
 }
 
-Object.assign(window, { Icon, BrandMark, ChannelIcon, ICON_PATHS });
+if (typeof window !== 'undefined') Object.assign(window, { Icon, BrandMark, ChannelIcon, ICON_PATHS });
 
 
 

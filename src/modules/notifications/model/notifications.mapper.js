@@ -65,12 +65,12 @@ function undeliveredChannels(notification) {
 
 function toUiNotification(notification) {
   const priority = { critical: 'Критический', high: 'Высокий', medium: 'Средний', info: 'Информационный', low: 'Информационный' }[notification.priority] || notification.priority;
-  const source = { system: 'Система', orders: 'Заказы', finance: 'Финансы', documents: 'Документы', integrations: 'Интеграции', communications: 'Чаты', services: 'Услуги' }[notification.source] || notification.source || 'Система';
+  const source = { offers: 'КП', system: 'Система', orders: 'Заказы', finance: 'Финансы', documents: 'Документы', integrations: 'Интеграции', communications: 'Чаты', services: 'Услуги' }[notification.source] || notification.source || 'Система';
   const created = asDate(notification.created_at);
   const deepLink = String(notification.deep_link || '');
   const deepOrder = deepLink.match(/\/orders\/([^/?#]+)/);
   const resourceType = String(notification.resource_type || '').toLowerCase();
-  const section = ['absence', 'org_structure'].includes(resourceType) ? 'profile' : resourceType.includes('document') ? 'documents'
+  const section = resourceType === 'proposal' ? 'offers' : ['absence', 'org_structure'].includes(resourceType) ? 'profile' : resourceType.includes('document') ? 'documents'
     : resourceType.includes('return') || resourceType.includes('aftersale') ? 'returns'
       : resourceType.includes('finance') || resourceType.includes('payment') ? 'finance'
         : resourceType.includes('service') ? 'services'

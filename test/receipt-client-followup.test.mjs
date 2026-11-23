@@ -35,11 +35,10 @@ test('binding picker supports legal entities end to end', () => {
   assert.match(app, /companies=\{workspace\.companies\}/);
 });
 
-test('registry switches between active receipts and drafts', () => {
-  assert.match(page, /const \[registryView, setRegistryView\] = useState\('active'\)/);
-  assert.match(page, /registryView === 'drafts' \? document\.isReceiptDraft : !document\.isReceiptDraft/);
-  assert.match(page, />Рабочий список<\/button>/);
-  assert.match(page, /Черновики \(\{registryDraftCount/);
+test('registry separates active receipts from the shared collapsible drafts block', () => {
+  assert.match(page, /<DraftWorkspaceList route="receipts"/);
+  assert.match(page, /all\.filter\(\(document\) => !document\.isReceiptDraft\)/);
+  assert.match(page, /all\.filter\(document => document\.isReceiptDraft\)/);
 });
 
 test('parent and child rows expose sequential review progress', () => {

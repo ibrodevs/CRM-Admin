@@ -26,6 +26,7 @@ const NOTIF_TAB = { finance: 'finance', documents: 'documents', offers: 'offers'
 function notifGo(n, onNavigate, onOpenOrder, orders = []) {
 
   const link = typeof n.link === 'string' ? { type: n.link } : (n.link || {});
+  if (link.type === 'offers' && link.resourceId) { onNavigate?.(`offers/${link.resourceId}`); return; }
   const svc = link.svc;
   const tab = n.source === 'Чаты' ? 'chat' : (svc ? 'services' : (NOTIF_TAB[link.type] || 'overview'));
   if (n.order && onOpenOrder) {

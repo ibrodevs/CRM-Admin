@@ -1,3 +1,5 @@
+import { interactiveApi } from '../../proposals/api.js';
+import { proposalDraftEntries } from '../../../shared/drafts/workspaces.js';
 import { freeBookingFormScope } from '../../../shared/drafts/workspaces.js';
 import { DraftCloseDialog } from '../../../shared/ui/DraftCloseDialog.jsx';
 import { OfferSearchExtras } from '../../services/index.js';
@@ -126,21 +128,24 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
     try {
       let current = proposal;
       if (!current) {
+        if (Object.keys(totals).length > 1) throw new Error('Сформируйте отдельное КП для каждой валюты. Автоматическая конвертация пока не выполняется.');
         const currency = resolveCurrency(draft.find((item) => item.currency)?.currency);
         current = await proposalsApi.create({
           type: 'standard', purpose: 'Свободное бронирование', source: 'dashboard', recipient: recipient.trim(), currency,
           brief: { source: 'dashboard_free_booking' },
           variants: [{ name: 'Вариант 1', items: draft.map((item) => ({
             ...(freeBookingOfferId(item) ? { offer: freeBookingOfferId(item) } : {}),
-            service_kind: kindCode(item.kind), title: svcTitle(item), description: item.supplier || '', quantity: 1,
+            service_kind: kindCode(item.kind), title: svcTitle(item), description: [item.sub, item.fareName, item.supplier].filter(value => typeof value === 'string' && value).join(' · '), quantity: 1,
             price_amount: svcSum(item), price_currency: item.currency || currency,
           })) }],
         });
         current = await proposalsApi.prepare(current.id, current.version);
       }
-      if (sendNow) current = await proposalsApi.send(current.id, current.version);
+      await interactiveApi.get(current.id);
       setProposal(current);
-      toast(sendNow ? `КП ${current.number} отправлено клиенту` : `КП ${current.number} сформировано`, 'ok');
+      toast(`КП ${current.number} создано. Открываем конструктор для проверки и публикации.`, 'ok');
+      onDone();
+      onNavigate?.(`offers/${current.id}`);
     } catch (error) { toast(error.message || 'Не удалось сформировать КП', 'err'); }
     finally { setBusy(false); }
   };
@@ -256,8 +261,8 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
       <Drawer open onClose={onClose} title="Коммерческое предложение"
         footer={<>
           <Button variant="secondary" onClick={() => setStep('menu')}>Назад</Button>
-          <Button icon="send" style={{ flex: 1 }} disabled={busy || (proposal && !recipient.trim())} onClick={() => createProposal(Boolean(proposal && recipient.trim()))}>
-            {busy ? 'Сохраняем…' : proposal ? 'Отправить клиенту' : 'Сформировать КП'}
+          <Button iconRight="chevRight" style={{ flex: 1 }} disabled={busy} onClick={() => createProposal(false)}>
+            {busy ? 'Сохраняем…' : 'Открыть конструктор КП'}
           </Button>
         </>}>
 
@@ -706,7 +711,7 @@ const ORDER_CLOSED_STATUS = ['completed', 'cancelled'];
 const serviceSales = (service) => Number(service.calc?.total ?? service.client_total ?? service.sum ?? 0);
 const serviceProfit = (service) => Number(service.calc?.total ?? service.client_total ?? 0) - Number(service.calc?.tariff ?? service.supplier_cost ?? 0);
 
-function DashboardPage({ role, user, orders = [], orderServices = [], clients = [], companies = [], proposals = [], returns = [], chats = [], dashboard, calendar, finance, resources, incidents = [], slaQueue = [], currentShift, motivationAccruals = [], users = [], suppliers = [], onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat, onReload }) {
+function DashboardPage({ role, user, orders = [], orderServices = [], clients = [], companies = [], proposals = [], returns = [], chats = [], dashboard, calendar, finance, resources, incidents = [], slaQueue = [], currentShift, motivationAccruals = [], users = [], suppliers = [], onOpenProposal, onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat, onReload }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useDraftState('dashboard', "searchOpen", false);
   const [searchMounted, setSearchMounted] = useDraftState('dashboard', "searchMounted", false);
@@ -943,7 +948,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
       <div className="dsh scroll">
         <SectionInfo section="dashboard" />
-        <DraftWorkspaceList />
+        <DraftWorkspaceList extraEntries={proposalDraftEntries(proposals, proposal => onOpenProposal?.(proposal))} />
         {shift && (
           <div className="card dsh-shift">
             <span className="dsh-shift-dot" />

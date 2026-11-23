@@ -15,7 +15,8 @@ const required = [
   'const reviewAllReadyReceipts = () =>',
   'Редактировать одинаковую стоимость',
   "modes={['new', 'order', 'company', 'person']}",
-  "registryView === 'drafts' ? document.isReceiptDraft : !document.isReceiptDraft",
+  'all.filter((document) => !document.isReceiptDraft)',
+  '<DraftWorkspaceList route="receipts"',
   'Проверено {reviewedBlankCount} из {subReceiptCount}',
 ];
 

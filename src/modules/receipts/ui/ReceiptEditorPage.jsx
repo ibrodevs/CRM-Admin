@@ -1,3 +1,4 @@
+import { DraftWorkspaceList } from '../../../shared/drafts/Drafts.jsx';
 import { DraftCloseDialog } from '../../../shared/ui/DraftCloseDialog.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -4127,7 +4128,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
     typeof window === 'undefined' ? [] : readReceiptImportDrafts(window.localStorage)
   ));
   const [imported, setImported] = useState([]);
-  const [registryView, setRegistryView] = useState('active');
+
   const [registryPdfSync, setRegistryPdfSync] = useState({});
   const registryPdfSyncTimers = useRef(new Map());
   const registryPdfSyncNoticeTimers = useRef(new Map());
@@ -4208,10 +4209,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
         sourceOriginalUrl: document.serverId ? documentsApi.supplierSourcePreviewUrl(document.serverId) : document.supplierBlank?.sourceOriginalUrl,
       };
     });
-  const registryDraftCount = all.filter((document) => document.isReceiptDraft).length;
-  const receipts = all.filter((document) => (
-    registryView === 'drafts' ? document.isReceiptDraft : !document.isReceiptDraft
-  )).filter((document) => {
+  const receipts = all.filter((document) => !document.isReceiptDraft).filter((document) => {
     const details = receiptDetailsLines(document.editorType, document.parsed).join(' ');
     return !q || `${document.no} ${document.name} ${document.order} ${document.participant} ${details}`.toLowerCase().includes(q.toLowerCase());
   });
@@ -4415,36 +4413,19 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
       </Topbar>
       <div className="content">
         <SectionInfo section="receipts" />
+        <DraftWorkspaceList route="receipts" extraEntries={[
+          ...importDrafts.map(draft => ({ id: `receipt-import/${draft.id}`, title: receiptImportDraftTitle(draft), stage: 'form', services: ['Импорт документов'], count: draft.files?.length || 0, savedAt: draft.savedAt, onContinue: () => continueImportDraft(draft.id), onDelete: () => clearImportDraft(draft.id) })),
+          ...all.filter(document => document.isReceiptDraft).map(document => ({ id: `receipt/${document.id}`, title: document.name || document.no, stage: 'form', services: [document.editorType], savedAt: new Date(document.updated_at || document.date || Date.now()).getTime(), onContinue: () => { editDirty.current = false; setEdit(document); }, onDelete: () => removeReceipt(document) })),
+        ]} />
         <div className="fade-in">
           <SearchToolbar>
             <div style={{ flex: 1 }} />
             <SearchBox value={q} onChange={setQ} placeholder="Документ, участник, маршрут…" style={{ width: 280 }} />
-            <div className="seg-toggle" aria-label="Список квитанций">
-              <button type="button" className={'seg-btn' + (registryView === 'active' ? ' active' : '')}
-                onClick={() => setRegistryView('active')}>Рабочий список</button>
-              <button type="button" className={'seg-btn' + (registryView === 'drafts' ? ' active' : '')}
-                onClick={() => setRegistryView('drafts')}>Черновики ({registryDraftCount + importDrafts.length})</button>
-            </div>
+
 
           </SearchToolbar>
 
-          {registryView === 'drafts' && importDrafts.map((draft) => (
-            <div className="receipt-import-draft-banner" key={draft.id}>
-              <span className="receipt-import-draft-icon"><Icon name="save" /></span>
-              <span>
-                <b>{receiptImportDraftTitle(draft)}</b>
-                <small>
-                  Черновик импорта · {draft.files.length} {plural(draft.files.length, 'квитанция', 'квитанции', 'квитанций')} · сохранён {new Date(draft.savedAt).toLocaleString('ru-RU', RU_DATE_TIME)}
-                </small>
-              </span>
-              <Button size="sm" icon="edit" onClick={() => continueImportDraft(draft.id)}>Продолжить редактирование</Button>
-              <Button size="sm" variant="ghost" onClick={() => {
-                if (window.confirm(`Удалить черновик «${receiptImportDraftTitle(draft)}»? Загруженные оригиналы в CRM не удаляются.`)) {
-                  clearImportDraft(draft.id);
-                }
-              }}>Удалить черновик</Button>
-            </div>
-          ))}
+
 
           {receipts.length ? (
             <section className="section-workspace" aria-label="Рабочая область квитанций"><div className="table-card receipt-registry-card" style={{ overflowX: 'auto' }}>
@@ -4539,9 +4520,7 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
                 </tbody>
               </table>
             </div></section>
-          ) : registryView === 'drafts' && importDrafts.length ? null : <EmptyState icon={registryView === 'drafts' ? 'save' : 'route'}
-            title={registryView === 'drafts' ? 'Черновики не найдены' : 'Документы не найдены'}
-            sub={registryView === 'drafts' ? 'Сохранённые черновики появятся в этом списке.' : 'Импортируйте авиа, ЖД, отельный или трансферный документ.'} />}
+          ) : <EmptyState icon="route" title="Документы не найдены" sub="Импортируйте авиа, ЖД, отельный или трансферный документ." />}
         </div>
 
       </div>

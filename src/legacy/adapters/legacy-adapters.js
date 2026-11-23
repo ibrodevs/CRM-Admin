@@ -128,7 +128,7 @@ export function toLegacyProposal(item, orders = []) {
     id: item.number,
     order: order?.no || item.order || null,
     client: order?.client || item.recipient || 'Без получателя',
-    status: proposalStatus[item.status] || item.status,
+    status: item.interactive ? ({ draft: 'Черновик', published: 'Отправлено клиенту', review: 'На согласовании', awaiting_approval: 'На согласовании', approved: 'Согласовано' }[item.interactive.stage] || proposalStatus[item.status]) : proposalStatus[item.status] || item.status,
     docType: item.type === 'train' ? 'train' : 'generic',
     validUntil: date(item.valid_until),
     created: date(item.created_at),

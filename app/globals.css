@@ -5,3 +5,5 @@
 @import 'mapbox-gl/dist/mapbox-gl.css';
 @import '../src/styles/components/hotel-map.css';
 @import '../src/styles/components/hotel-remarks.css';
+
+@import '../src/styles/components/interactive-proposals.css';

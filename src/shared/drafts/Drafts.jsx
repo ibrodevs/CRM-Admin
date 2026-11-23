@@ -69,7 +69,7 @@ export function useDraftStatus() {
   return useSyncExternalStore(store?.subscribe || (() => () => {}), store?.status || (() => emptyStatus), () => emptyStatus);
 }
 // Saved work is part of its workspace, independent of dismissed notifications.
-export function DraftWorkspaceList({ route = 'dashboard', className = '' }) {
+export function DraftWorkspaceList({ route = 'dashboard', className = '', extraEntries = [] }) {
   const store = useContext(DraftContext);
   const status = useDraftStatus();
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -77,12 +77,12 @@ export function DraftWorkspaceList({ route = 'dashboard', className = '' }) {
   const [stage, setStage] = useState('');
   const [service, setService] = useState('');
   const listId = useId();
-  const entries = useMemo(() => draftsForRoute(store?.workspaces?.() || [], route), [store, status, route]);
+  const entries = useMemo(() => [...new Map([...draftsForRoute(store?.workspaces?.() || [], route), ...extraEntries].map(entry => [entry.id, entry])).values()].sort((a, b) => b.savedAt - a.savedAt), [store, status, route, extraEntries]);
   const visible = filterDrafts(entries, { stage, service });
   const services = [...new Set(entries.flatMap(entry => entry.services))].sort();
   if (!entries.length) return null;
   return <section className={'card draft-workspace' + (collapsed ? ' is-collapsed' : '') + ' ' + className} aria-label="Черновики">
-    <header className="draft-workspace-head"><button type="button" className="draft-workspace-toggle" aria-expanded={!collapsed} aria-controls={listId} onClick={() => { setCollapsed(!collapsed); setPendingDelete(null); }}><span className="draft-workspace-title">Черновики <span>{entries.length}</span></span><span className="draft-workspace-toggle-action">{collapsed ? 'Показать' : 'Свернуть'}<Icon name={collapsed ? 'chevDown' : 'chevUp'} /></span></button>{!collapsed && <p>Сохранённые поиски и незавершённые формы в этом браузере. Перед бронированием проверим цену и наличие.</p>}</header>
+    <header className="draft-workspace-head"><button type="button" className="draft-workspace-toggle" aria-expanded={!collapsed} aria-controls={listId} onClick={() => { setCollapsed(!collapsed); setPendingDelete(null); }}><span className="draft-workspace-title">Черновики <span>{entries.length}</span></span><span className="draft-workspace-toggle-action">{collapsed ? 'Показать' : 'Свернуть'}<Icon name={collapsed ? 'chevDown' : 'chevUp'} /></span></button>{!collapsed && <p>Сохранённые поиски, формы и предложения. Перед бронированием проверим цену и наличие.</p>}</header>
     <div className="draft-workspace-list" id={listId} hidden={collapsed}>
       <div className="draft-workspace-filters">
         <Select aria-label="Этап черновика" value={stage} onChange={e => setStage(e.target.value)} options={[{ value: '', label: 'Все этапы' }, ...DRAFT_STAGES]} />
@@ -93,7 +93,7 @@ export function DraftWorkspaceList({ route = 'dashboard', className = '' }) {
       {!visible.length && <p className="draft-workspace-empty">Нет черновиков по выбранным фильтрам.</p>}
       {visible.map((entry) => <div className="draft-recovery-row" key={entry.id}>
         <div><strong>{entry.title}</strong><span className="draft-workspace-stage">{DRAFT_STAGES.find(item => item.value === (entry.stage || 'form'))?.label}</span><span>{[entry.services.join(' · '), entry.count ? `Услуг в подборке: ${entry.count}` : '', `Сохранено ${new Date(entry.savedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`].filter(Boolean).join(' · ')}</span></div>
-        {pendingDelete === entry.id ? <div className="draft-workspace-actions"><span>Удалить черновик?</span><button type="button" className="draft-workspace-delete" onClick={() => { store.clear(entry.scope); setPendingDelete(null); }}>Удалить</button><button type="button" onClick={() => setPendingDelete(null)}>Отмена</button></div> : <div className="draft-workspace-actions"><button type="button" onClick={() => store.open(entry)}>Продолжить<Icon name="arrowRight" /></button><button type="button" className="draft-workspace-delete" title="Удалить черновик" aria-label={`Удалить черновик: ${entry.title}`} onClick={() => setPendingDelete(entry.id)}><Icon name="trash" /></button></div>}
+        {pendingDelete === entry.id ? <div className="draft-workspace-actions"><span>Удалить черновик?</span><button type="button" className="draft-workspace-delete" onClick={() => { if (entry.onDelete) entry.onDelete(); else store.clear(entry.scope); setPendingDelete(null); }}>Удалить</button><button type="button" onClick={() => setPendingDelete(null)}>Отмена</button></div> : <div className="draft-workspace-actions"><button type="button" onClick={() => entry.onContinue ? entry.onContinue() : store.open(entry)}>Продолжить<Icon name="arrowRight" /></button><button hidden={entry.canDelete === false} type="button" className="draft-workspace-delete" title="Удалить черновик" aria-label={`Удалить черновик: ${entry.title}`} onClick={() => setPendingDelete(entry.id)}><Icon name="trash" /></button></div>}
       </div>)}
     </div>
   </section>;

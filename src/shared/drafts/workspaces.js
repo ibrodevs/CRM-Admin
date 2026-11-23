@@ -63,7 +63,10 @@ export function savedWorkspaces(records) {
     const { scope, fields } = record;
     if (!hasDraftWork(fields)) continue;
     let group;
-    if (scope.startsWith('free-booking/')) {
+    if (/^proposal-workspace\/[^/]+$/.test(scope)) {
+      const proposalId = scope.split('/')[1];
+      group = { id: `kp/${proposalId}`, scope, type: 'route', route: 'offers', proposalId, title: `КП · ${fields.form?.title || 'Предложение'}` };
+    } else if (scope.startsWith('free-booking/')) {
       group = { id: 'free-booking', scope: 'free-booking', type: 'free-booking', title: 'Подбор услуг без заказа' };
     } else if (/^order\/[^/]+\//.test(scope)) {
       const orderId = scope.split('/')[1], order = contexts.get(orderId);
@@ -105,4 +108,15 @@ export function draftsForRoute(entries, route) {
   return entries.filter((entry) => section === 'dashboard'
     || (section === 'orders' && ['order', 'new-order'].includes(entry.type))
     || (entry.type === 'route' && entry.route === section));
+}
+
+const PROPOSAL_KINDS = { avia: 'Авиабилеты', hotel: 'Отели', transfer: 'Трансферы', rail: 'ЖД билеты', insurance: 'Страхование', bus: 'Автобусы', lounge: 'Бизнес-залы', aeroexpress: 'Аэроэкспресс', tour: 'Туры', other: 'Другие услуги' };
+
+export function proposalDraftEntries(proposals, onOpen) {
+  return proposals.filter(p => p.interactive?.has_draft).map(p => ({
+    id: `kp/${p.serverId || p.id}`, scope: `kp/${p.serverId || p.id}`, title: `КП ${p.number || p.id} · ${p.interactive.title || p.purpose || 'Предложение'}`,
+    stage: 'form', services: (p.interactive.service_kinds || []).map(kind => PROPOSAL_KINDS[kind] || kind),
+    savedAt: new Date(p.interactive.saved_at).getTime(), count: p.interactive.option_count,
+    canDelete: false, onContinue: () => onOpen(p),
+  }));
 }

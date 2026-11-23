@@ -175,7 +175,7 @@ test('прогресс импорта можно сохранить чернов
   assert.match(page, /title="Закрыть импорт\?"/);
   assert.match(page, /onSave=\{saveDraftAndClose\}/);
   assert.match(page, /Продолжить черновик/);
-  assert.match(page, /Продолжить редактирование/);
+  assert.match(page, /continueImportDraft\(draft\.id\)/);
   assert.match(page, /readReceiptImportDrafts/);
   assert.match(page, /writeReceiptImportDrafts/);
   assert.match(page, /upsertReceiptImportDraft/);

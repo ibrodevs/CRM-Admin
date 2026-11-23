@@ -8,10 +8,9 @@ const adapters = await readFile(new URL('../src/legacy/adapters/legacy-adapters.
 test('существующие квитанции показывают серверные черновики в отдельном списке', () => {
   assert.match(adapters, /isReceiptDraft: receiptImport\.stage === 'draft'/);
   assert.match(page, /'Черновик':\s+\{ tone: 'amber', action: 'Продолжить черновик' \}/);
-  assert.match(page, /const \[registryView, setRegistryView\] = useState\('active'\)/);
-  assert.match(page, /registryView === 'drafts' \? document\.isReceiptDraft : !document\.isReceiptDraft/);
-  assert.match(page, /Рабочий список/);
-  assert.match(page, /Черновики \(\{registryDraftCount \+ importDrafts\.length\}\)/);
+  assert.match(page, /<DraftWorkspaceList route="receipts"/);
+  assert.match(page, /all\.filter\(\(document\) => !document\.isReceiptDraft\)/);
+  assert.match(page, /all\.filter\(document => document\.isReceiptDraft\)/);
   assert.match(page, /const savedDocument = await documentsApi\.updateReceipt/);
   assert.match(page, /const savedDraft = toLegacyDocument\(savedDocument, orders\)/);
   assert.match(page, /d\.isReceiptDraft[\s\S]*?\? 'Черновик'/);
@@ -19,9 +18,8 @@ test('существующие квитанции показывают серв�
 });
 
 test('незавершённые импорты выводятся отдельными черновиками с продолжением редактирования', () => {
-  assert.match(page, /importDrafts\.map\(\(draft\) =>/);
-  assert.match(page, /key=\{draft\.id\}/);
+  assert.match(page, /importDrafts\.map\(draft =>/);
   assert.match(page, /continueImportDraft\(draft\.id\)/);
-  assert.match(page, />Продолжить редактирование<\/Button>/);
+  assert.match(page, /onContinue: \(\) => continueImportDraft/);
   assert.match(page, /clearImportDraft\(draft\.id\)/);
 });

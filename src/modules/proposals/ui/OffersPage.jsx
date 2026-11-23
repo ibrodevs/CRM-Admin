@@ -1,3 +1,6 @@
+import { DraftWorkspaceList } from '../../../shared/drafts/Drafts.jsx';
+import { proposalDraftEntries } from '../../../shared/drafts/workspaces.js';
+import { InteractiveProposal } from './InteractiveProposal.jsx';
 import { PageActionProvider, PageActions } from '../../../shared/ui/PageActions.jsx';
 import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
@@ -310,7 +313,7 @@ function FixVariantModal({ open, proposal, onClose, onFix }) {
 }
 
 const KP_ADD_TYPES = ['Авиа', 'ЖД', 'Гостиница', 'Трансфер', 'Автобус', 'Группа'];
-const KP_KIND_CODE = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Группа': 'group' };
+const KP_KIND_CODE = { 'Авиа': 'avia', 'ЖД': 'rail', 'Гостиница': 'hotel', 'Трансфер': 'transfer', 'Автобус': 'bus', 'Группа': 'tour', 'Отель': 'hotel', 'Аэроэкспресс': 'aeroexpress', 'Бизнес-зал': 'lounge', 'Страховка': 'insurance', 'Виза': 'visa', 'Тур': 'tour' };
 const KP_KIND_LABEL = Object.fromEntries(Object.entries(KP_KIND_CODE).map(([label, code]) => [code, label]));
 
 
@@ -381,8 +384,8 @@ function KpServicePicker({ participants = [], onAdd, onClose }) {
   const [kind, setKind] = useState('Авиа');
   const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...(typeof PAX_DEFAULT_OPTIONS !== 'undefined' ? PAX_DEFAULT_OPTIONS : {}) });
   const [added, setAdded] = useState(0);
-  const norm = (o, k) => ({ kind: k, title: o.title || o.main || o.route || (o.from && o.to ? o.from + ' → ' + o.to : k), sub: o.sub || o.fareName || o.fare || '', cost: Math.round(o.cost != null ? o.cost : (o.total || o.price || o.sum || 0)), fee: Math.round(o.fee || 0) });
-  const add = (o, k) => { onAdd(norm(o, k)); setAdded((n) => n + 1); toast('Услуга добавлена в форму варианта КП', 'info'); };
+  const norm = (o, k) => ({ kind: KP_KIND_CODE[k] || k, offer: o._backendOfferId || o.offerId || o.backendOfferId || null, currency: resolveCurrency(o.currency), title: o.title || o.main || o.route || (o.from && o.to ? o.from + ' → ' + o.to : k), sub: o.sub || o.fareName || (typeof o.fare === 'string' ? o.fare : '') || '', cost: Number(o.cost ?? o.total ?? o.price?.amount ?? o.price ?? o.sum ?? 0), fee: Number(o.fee || 0) });
+  const add = (o, k) => { if (onAdd(norm(o, k)) === false) return; setAdded((n) => n + 1); toast('Услуга добавлена в форму варианта КП', 'info'); };
   return (
     <StackPanel title="Подбор услуг для КП" width="min(1320px,96vw)" onClose={onClose}
       footer={<>
@@ -435,6 +438,8 @@ function KPModule({ order, services, participants, onApprove }) {
   const withHist = (p, text) => ({ ...p, history: [...p.history, { t: kpNow(), text, who: (window.CURRENT_USER && CURRENT_USER.name) || 'Оператор' }] });
 
   const proposalItemPayload = (item, currency) => ({
+    ...(item.service ? { service: item.service } : {}),
+    ...(item.offer ? { offer: item.offer } : {}),
     service_kind: KP_KIND_CODE[item.kind] || item.kind || item.service_kind || '',
     title: item.title || 'Услуга',
     description: item.sub || item.description || '',
@@ -479,18 +484,20 @@ function KPModule({ order, services, participants, onApprove }) {
   const persistProposal = async (items, name) => {
     try {
       const validUntil = new Date(); validUntil.setDate(validUntil.getDate() + 7);
-      const created = await proposalsApi.create({ order: order.id, type: 'standard', purpose: 'Предложение клиенту', currency: 'USD', valid_until: validUntil.toISOString(), variants: [{ name, items: items.map((item) => proposalItemPayload(item, 'USD')) }] });
+      const currency = resolveCurrency(items[0]?.currency, order.currency, order.base_currency);
+      if (items.some(item => resolveCurrency(item.currency, currency) !== currency)) throw new Error('Разделите услуги разных валют по отдельным КП');
+      const created = await proposalsApi.create({ order: order.id, type: 'standard', purpose: 'Предложение клиенту', currency, valid_until: validUntil.toISOString(), variants: [{ name, items: items.map((item) => proposalItemPayload(item, currency)) }] });
       const proposal = toLegacyProposal(created, [order]);
       setProposals((list) => [proposal, ...list]); setActiveId(proposal.id); setActiveVar(proposal.variants[0]?.id || null); setView('edit');
       toast('Черновик КП создан', 'ok');
     } catch (error) { toast(error.message || 'Не удалось создать КП', 'err'); }
   };
   const createProposal = () => {
-    const items = (services.length ? services : ORDER_SERVICES).map((s) => ({ id: uid('i'), kind: s.kind, title: s.title, sub: s.sub, cost: Math.round(s.sum * 0.95), fee: Math.round(s.sum * 0.05) }));
+    const items = services.map((s) => ({ id: uid('i'), service: s.serverId || s.id, kind: s.kind, title: s.title, sub: s.sub, cost: Number(s.sum ?? s.client_total ?? 0), fee: 0, currency: s.currency }));
     persistProposal(items, 'Вариант A');
   };
   const openEdit = (p) => { setActiveId(p.id); setActiveVar(p.docType === 'train' ? null : p.variants[0].id); setView('edit'); };
-  const openPreview = (p) => { setActiveId(p.id); setView('preview'); };
+  const openPreview = (p) => { setActiveId(p.id); setView('edit'); };
 
 
   const createFromTemplate = (tpl) => {
@@ -744,6 +751,9 @@ function KPModule({ order, services, participants, onApprove }) {
 
 
   if (view === 'edit' && active) {
+    return <InteractiveProposal ServicePicker={KpServicePicker} OrderPicker={OrderPickerDrawer} proposalId={active.serverId} orders={[order]} onClose={() => setView('list')} />;
+  }
+  if (view === 'legacy-edit' && active) {
     const isTrain = active.docType === 'train';
     const v = !isTrain ? (active.variants.find((x) => x.id === activeVar) || active.variants[0]) : null;
     const canFix = active.status === 'Отправлено клиенту' || active.status === 'На согласовании';
@@ -1192,7 +1202,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder, orders = [] }) {
       } else if (mode === 'builder' && order) {
         toast('КП ' + np.id + ': открываем конструктор', 'ok');
         onClose();
-        onOpenOrder && onOpenOrder(order, 'offers');
+        /* Registry opens the shared constructor for the new proposal. */
       } else {
         toast('Черновик КП ' + np.id + ' создан' + (order ? '' : ' без привязки к заказу'), 'ok');
         onClose();
@@ -1210,7 +1220,6 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder, orders = [] }) {
       sub="Начните с любых доступных данных. Заказ, текст заявки и условия можно добавить позже."
       footer={<div className="kp-create-footer">
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        {selOrder && <Button variant="secondary" iconRight="arrowRight" disabled={busy} onClick={() => submit('pick')}>Создать и перейти к подбору</Button>}
         <Button iconRight="arrowRight" disabled={busy} onClick={() => submit(selOrder ? 'builder' : 'draft')}>
           {busy ? 'Создаём…' : (selOrder ? 'Создать и открыть конструктор' : 'Создать КП без заказа')}
         </Button>
@@ -1329,7 +1338,7 @@ function KPCreateModal({ open, onClose, onCreated, onOpenOrder, orders = [] }) {
 
 
 
-function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
+function LegacyProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
   const defChannel = proposal.order ? orderClientChannel(proposal.order) : 'email';
   const [channel, setChannel] = useState(defChannel);
   const meta = sendChannelMeta(channel);
@@ -1401,7 +1410,7 @@ function ProposalSendPanel({ proposal, participants = [], onSend, onClose }) {
 
 
 
-function StandaloneKPEditor({ proposal, orders = [], onClose, onSaved, onSend }) {
+function LegacyStandaloneKPEditor({ proposal, orders = [], onClose, onSaved, onSend }) {
   const toast = useToast();
   const [draft, setDraft] = useState(() => JSON.parse(JSON.stringify(proposal)));
   const [activeVariant, setActiveVariant] = useState(proposal.variants?.[0]?.id || null);
@@ -1555,6 +1564,14 @@ function StandaloneKPEditor({ proposal, orders = [], onClose, onSaved, onSend })
 }
 
 
+function ProposalSendPanel({ proposal, onClose }) {
+  return <InteractiveProposal ServicePicker={KpServicePicker} OrderPicker={OrderPickerDrawer} proposalId={proposal.serverId} onClose={onClose} />;
+}
+
+function StandaloneKPEditor({ proposal, orders = [], onClose, onSaved }) {
+  return <InteractiveProposal ServicePicker={KpServicePicker} OrderPicker={OrderPickerDrawer} proposalId={proposal.serverId} orders={orders} onClose={onClose} onChanged={onSaved} />;
+}
+
 function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [], orders = [], onChanged }) {
   const toast = useToast();
   const normalizeProposal = (item) => item?.serverId ? item : toLegacyProposal(item, orders);
@@ -1584,6 +1601,19 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
 
   useEffect(() => { if (intent && intent.type === 'create') { setCreateOpen(true); onConsume && onConsume(); } }, [intent]);
 
+  useEffect(() => {
+    if (intent?.type !== 'open' || !intent.id) return;
+    const proposal = proposals.find(p => String(p.serverId) === String(intent.id));
+    if (proposal) { setEditTarget(proposal); onConsume?.(); return; }
+    const controller = new AbortController();
+    proposalsApi.detail(intent.id, controller.signal).then(server => {
+      const next = toLegacyProposal(server, orders);
+      setProposals(current => [next, ...current.filter(item => item.serverId !== next.serverId)]);
+      setEditTarget(next); onChanged?.(next); onConsume?.();
+    }).catch(error => { if (error.name !== 'AbortError') { toast(error.message, 'err'); onConsume?.(); } });
+    return () => controller.abort();
+  }, [intent?.type, intent?.id]);
+
   let rows = proposals.filter((p) => {
     if (fStatus && p.status !== fStatus) return false;
     if (q && !(`${p.id} ${p.client} ${p.order}`.toLowerCase().includes(q.toLowerCase()))) return false;
@@ -1596,6 +1626,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
 
   return (
     <div className="fade-in">
+      <DraftWorkspaceList route="offers" extraEntries={proposalDraftEntries(proposals, setEditTarget)} />
       <RegistryStats><div className="grid-4" style={{ marginBottom: 22 }}>
         {STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}
       </div></RegistryStats>
@@ -1618,20 +1649,20 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
             </tr></thead>
             <tbody>
               {rows.map((p) => (
-                <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => setPreview(p)}>
+                <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => setEditTarget(p)}>
                   <td className="t-strong">{p.id}</td>
                   <td>{p.order ? <span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {p.order}</span> : <span style={{ color: 'var(--muted)' }}>Без заказа</span>}</td>
                   <td>{p.client}</td>
-                  <td>{pVariants(p).length}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{proposalSummary(p)}</td>
+                  <td>{p.interactive ? `${p.interactive.option_count} услуг · ${p.interactive.group_count} разделов` : pVariants(p).length}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{p.interactive ? (p.interactive.total != null ? kpM(p.interactive.total, p.interactive.currency) : 'Зависит от выбора') : proposalSummary(p)}</td>
                   <td>{p.validUntil}</td>
-                  <td><Pill tone={KP_STATUS[p.status]}>{p.status}</Pill></td>
+                  <td><Pill tone={KP_STATUS[p.status]}>{p.interactive?.label || p.status}</Pill></td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                       items={[
                         { icon: 'edit', label: 'Редактировать', onClick: () => setEditTarget(p) },
-                        { icon: 'eye', label: 'Предпросмотр', onClick: () => setPreview(p) },
-                        { icon: 'send', label: 'Отправить клиенту', onClick: () => setSendTarget(p) },
+                        { icon: 'eye', label: 'Предпросмотр и версии', onClick: () => setEditTarget(p) },
+                        { icon: 'send', label: 'Ссылка и согласование', onClick: () => setEditTarget(p) },
                         ...(p.order ? [{ icon: 'orders', label: 'Перейти в заказ', onClick: () => { const o = orderByNo(p.order, orders); if (o) onOpenOrder(o); else toast('Заказ № ' + p.order + ' не найден', 'warn'); } }] : []),
                       ]} />
                   </td>
@@ -1660,11 +1691,12 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
       <KPCreateModal open={createOpen} onClose={() => setCreateOpen(false)}
         onCreated={(np, mode) => {
           setProposals((ps) => [np, ...ps]);
-          if (mode === 'draft' && !np.order) setEditTarget(np);
+          setEditTarget(np);
           onChanged?.(np);
         }} onOpenOrder={onOpenOrder} orders={orders} />
       {editTarget && <StandaloneKPEditor proposal={editTarget} orders={orders} onClose={() => setEditTarget(null)}
-        onSaved={(saved) => {
+        onSaved={async () => {
+          const saved = toLegacyProposal(await proposalsApi.detail(editTarget.serverId), orders);
           setProposals((items) => items.map((item) => item.serverId === saved.serverId ? saved : item));
           setEditTarget(saved);
           onChanged?.(saved);
