@@ -82,7 +82,7 @@ export function SessionSecurity({ auth }) {
         <div className="form-grid">
           <Field label="Блокировать через"><Select options={intervals} value={String(form.auto_lock_minutes)} onChange={e => set('auto_lock_minutes', e.target.value)} /></Field>
           <Field label="Завершать сессию через"><Select options={intervals} value={String(form.auto_logout_minutes)} onChange={e => set('auto_logout_minutes', e.target.value)} /></Field>
-          <Field label="Текущий пароль для подтверждения"><PasswordInput name="current_password" autoComplete="current-password" required value={form.password} onChange={e => set('password', e.target.value)} /></Field>
+          <div className="session-security-password"><Field label="Текущий пароль для подтверждения"><PasswordInput name="current_password" autoComplete="current-password" required value={form.password} onChange={e => set('password', e.target.value)} /></Field></div>
         </div>
       </fieldset>
       {error && <p role="alert" className="field-error">{error}</p>}

@@ -4422,6 +4422,8 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 .session-security-status>div{flex:1;min-width:0}
 .session-security-status p,.session-security-disable-action p{font-size:12px;line-height:1.5;color:var(--muted);margin:6px 0 0}
 .session-security-fields{border:0;padding:0;margin:0;min-width:0}
+.session-security-settings{min-width:0;container-type:inline-size}
+.session-security-settings .field{min-width:0}
 .session-security-pin-edit{margin-bottom:20px}
 .session-security-pin-edit>.btn{margin-top:8px}
 .session-security-disable-action{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:20px;padding-top:20px;border-top:1px solid var(--line)}
@@ -4438,7 +4440,11 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 @media(prefers-reduced-motion:reduce){.receipt-upload-progress.is-active .receipt-upload-progress-track>span{animation:none;transform:none}}
 .flight-result-date{display:block;font-size:11px;color:var(--muted);font-weight:400;line-height:1.5}
 
-.password-input>.input{padding-right:88px}
+.password-input{width:100%;min-width:0}
+.password-input>.input{min-width:0;padding-left:15px;padding-right:88px}
+.password-input-single-action>.input{padding-right:48px}
+.session-security-pin-edit .password-input>.input{font-size:20px;letter-spacing:5px;font-variant-numeric:tabular-nums}
+.session-security-password{grid-column:1/-1;min-width:0}
 .password-input-actions{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;gap:2px}
 .password-input-actions>.icon-btn{width:32px;height:32px;padding:6px;color:var(--muted)}
 .password-input-actions>.icon-btn>svg{width:18px;height:18px}

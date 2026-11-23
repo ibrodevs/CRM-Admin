@@ -11,9 +11,9 @@ export function PasswordInput({ onChange, onInput, secretLabel = 'пароль',
     const input = inputRef.current;
     if (input && input.value !== props.value) onChange?.({ target: input, currentTarget: input });
   };
-  return <div className="input-wrap password-input">
+  return <div className={'input-wrap password-input' + (!allowCopy ? ' password-input-single-action' : '')}>
     <Input {...props} inputRef={inputRef} type={visible ? 'text' : 'password'} onChange={onChange}
-      onInput={event => { onChange?.(event); onInput?.(event); }} />
+      onInput={onInput} />
     <div className="password-input-actions">
       {allowCopy && <button type="button" className="icon-btn" aria-label="Скопировать пароль" title="Скопировать пароль" onMouseDown={event => event.preventDefault()} onClick={async () => {
         const value = inputRef.current?.value;
