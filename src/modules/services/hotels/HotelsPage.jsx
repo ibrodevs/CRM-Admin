@@ -576,7 +576,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
             <span className="hp-flabel">Номера и гости</span>
             <HotelOccupancyPicker rooms={occupancyRooms} onChange={setOccupancyRooms} />
           </div>
-          <Button className="hp-find-btn" disabled={searching} onClick={runHotelSearch}>{searching ? <><span className="hp-spinner" aria-hidden="true" />Поиск…</> : <><Icon name="search" />Найти</>}</Button>
+          <Button className="hp-find-btn" size="field" disabled={searching} onClick={runHotelSearch}>{searching ? <><span className="hp-spinner" aria-hidden="true" />Поиск…</> : <><Icon name="search" />Найти</>}</Button>
         </div>
 
         <div className="hp-search-row hp-search-row-2">

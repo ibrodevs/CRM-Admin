@@ -47,6 +47,18 @@
   --button-text-size: 15px;
 }
 
+/* Search actions line up with controls, not with their labels.  Keep the
+   field size independent of regular toolbar buttons and large CTA buttons. */
+.btn[data-ui-button][data-size="field"][data-variant] {
+  --button-height: var(--h-control);
+  --button-text-size: 15px;
+  height: var(--h-control);
+  min-height: var(--h-control);
+  padding-block: 0;
+  border-radius: var(--r-input);
+  align-self: end;
+}
+
 .btn[data-ui-button][data-size][data-variant] > svg {
   width: var(--button-icon-size);
   height: var(--button-icon-size);
