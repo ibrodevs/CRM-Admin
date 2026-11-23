@@ -1963,7 +1963,7 @@ function ManualServiceForm({ kind, onAdd, currency, addLabel = 'Добавить
     <Field label="Поставщик"><Input value={supplier} onChange={(event) => setSupplier(event.target.value)} placeholder="Название поставщика" /></Field>
     <Field label="Дата"><DateField value={date} onChange={setDate} placeholder="Выбрать дату" /></Field>
     <Field label={`Стоимость, ${currency}`}><Input type="number" min="0" step="0.01" value={cost} onChange={(event) => setCost(event.target.value)} placeholder="0" /></Field>
-    <Button icon="plus" onClick={submit}>{addLabel}</Button>
+    <Button size="field" icon="plus" onClick={submit}>{addLabel}</Button>
   </div></div>;
 }
 
