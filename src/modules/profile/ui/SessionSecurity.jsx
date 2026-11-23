@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { authApi } from '../../../shared/auth/auth.api.js';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
-import { Input } from '../../../shared/ui/Input.jsx';
 import { PasswordInput } from '../../../shared/ui/PasswordInput.jsx';
 import { Select } from '../../../shared/ui/Select.jsx';
 import { Pill } from '../../../shared/ui/Pill.jsx';
@@ -75,8 +74,8 @@ export function SessionSecurity({ auth }) {
       <fieldset disabled={busy} className="session-security-fields">
         {showPinFields && <div className="session-security-pin-edit">
           <div className="form-grid">
-            <Field label={enabled ? 'Новый PIN (4 цифры)' : 'PIN (4 цифры)'}><Input type="password" name="session-pin" autoComplete="off" data-1p-ignore="true" data-lpignore="true" inputMode="numeric" maxLength={4} minLength={4} pattern="[0-9]{4}" required={editingPin} value={form.pin} onChange={e => set('pin', e.target.value.replace(/\D/g, '').slice(0, 4))} /></Field>
-            <Field label="Повторите PIN"><Input type="password" name="session-pin-confirmation" autoComplete="off" data-1p-ignore="true" data-lpignore="true" inputMode="numeric" maxLength={4} minLength={4} pattern="[0-9]{4}" required={editingPin} value={form.confirmation} onChange={e => set('confirmation', e.target.value.replace(/\D/g, '').slice(0, 4))} /></Field>
+            <Field label={enabled ? 'Новый PIN (4 цифры)' : 'PIN (4 цифры)'}><PasswordInput secretLabel="PIN" allowCopy={false} name="session-pin" autoComplete="off" data-1p-ignore="true" data-lpignore="true" inputMode="numeric" maxLength={4} minLength={4} pattern="[0-9]{4}" required={editingPin} value={form.pin} onChange={e => set('pin', e.target.value.replace(/\D/g, '').slice(0, 4))} /></Field>
+            <Field label="Повторите PIN"><PasswordInput secretLabel="PIN" allowCopy={false} name="session-pin-confirmation" autoComplete="off" data-1p-ignore="true" data-lpignore="true" inputMode="numeric" maxLength={4} minLength={4} pattern="[0-9]{4}" required={editingPin} value={form.confirmation} onChange={e => set('confirmation', e.target.value.replace(/\D/g, '').slice(0, 4))} /></Field>
           </div>
           {enabled && <Button type="button" variant="ghost" size="sm" onClick={cancelPinChange}>Отменить изменение PIN</Button>}
         </div>}

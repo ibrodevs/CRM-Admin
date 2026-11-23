@@ -65,3 +65,20 @@ test('search inputs identify as searches and do not invite password manager logi
   assert.equal(input.props.autoComplete, 'off');
   assert.equal(input.props['data-1p-ignore'], 'true');
 });
+
+test('PIN reveal toggles only visibility, preserving leading zero and input restrictions without copying', () => {
+  const ref = { current: { value: '0123' } }, changes = [];
+  const render = harness('shared/ui/PasswordInput.jsx', { ref });
+  const props = { value: '0123', secretLabel: 'PIN', allowCopy: false, inputMode: 'numeric', maxLength: 4, onChange: event => changes.push(event.target.value) };
+  let tree = render('PasswordInput', props);
+  assert.equal(tree.find(node => node.type === 'Input').props.type, 'password');
+  assert.equal(tree.filter(node => node.type === 'button').length, 1);
+  tree.find(node => node.props['aria-label'] === 'Показать PIN').props.onClick();
+  tree = render('PasswordInput', props);
+  const input = tree.find(node => node.type === 'Input');
+  assert.equal(input.props.type, 'text');assert.equal(input.props.value, '0123');
+  assert.equal(input.props.maxLength, 4);assert.equal(input.props.inputMode, 'numeric');
+  tree.find(node => node.props['aria-label'] === 'Скрыть PIN').props.onClick();
+  assert.equal(render('PasswordInput', props).find(node => node.type === 'Input').props.type, 'password');
+  assert.deepEqual(changes, []);
+});

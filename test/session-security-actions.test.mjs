@@ -27,7 +27,7 @@ test('active PIN has an explicit status; opening and cancelling disable never ch
   const h=harness(); let tree=h.render();
   assert.ok(tree.find(node=>node.type==='Pill' && node.props.children==='PIN включён'));
   assert.equal(tree.filter(node=>node.props.type==='checkbox').length,0);
-  assert.equal(tree.filter(node=>node.type==='Input' && node.props.name==='session-pin').length,0);
+  assert.equal(tree.filter(node=>node.type==='PasswordInput' && node.props.name==='session-pin').length,0);
   button(tree,'Отключить PIN').props.onClick(); tree=h.render();
   assert.equal(drawer(tree).props.open,true); assert.deepEqual(h.calls,[]);
   drawer(tree).props.onClose(); tree=h.render();
@@ -56,7 +56,7 @@ test('invalid password leaves PIN active and keeps the confirmation open', async
 test('saving intervals cannot disable PIN and changing PIN can be cancelled without resetting intervals', async () => {
   const h=harness(); let tree=h.render();
   button(tree,'Изменить PIN').props.onClick(); tree=h.render();
-  tree.find(node=>node.type==='Input' && node.props.name==='session-pin').props.onChange({target:{value:'0123'}});
+  tree.find(node=>node.type==='PasswordInput' && node.props.name==='session-pin').props.onChange({target:{value:'0123'}});
   tree=h.render(); button(tree,'Отменить изменение PIN').props.onClick();
   await submit(h.render(),undefined,{current_password:'test-current-password'});
   assert.equal(h.calls.length,1); assert.equal(h.calls[0].auto_lock_minutes,5);
