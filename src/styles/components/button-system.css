@@ -19,7 +19,6 @@
   --button-icon-size: 16px;
   height: auto;
   min-height: var(--button-height);
-  align-self: center;
   padding: var(--button-padding-y) var(--button-padding-x);
   gap: var(--button-gap);
   border-radius: var(--button-radius);
