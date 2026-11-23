@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { ProposalChoices } from './ProposalChoices.jsx';
-import { chosenTotal, kpMoney, kpTime, optionsOf, selectionErrors } from '../model/interactive.js';
+import { chosenTotal, kpMoney, kpTime, optionsOf, selectionErrors, restoreProposalSelection } from '../model/interactive.js';
 import { publicQuote } from '../api/interactiveApi.js';
 
 export function PublicProposal({ token }) {
@@ -38,7 +38,10 @@ export function PublicProposal({ token }) {
     const controller = new AbortController();
     publicQuote(token, '', undefined, controller.signal).then(value => {
       if (!active.current) return;
-      apply(value); setIds(value.selection.option_ids || []); setPackageId(value.selection.package_id || null);
+      apply(value);
+      const restored = restoreProposalSelection(value);
+      setIds(restored.ids); setPackageId(restored.packageId);
+      if (restored.changed) setNotice('Предложение обновлено. Проверьте сохранённый выбор и подтвердите актуальные условия.');
       refresh(value);
     }).catch(e => { if (e.name !== 'AbortError') setError(e.message); });
     return () => { active.current = false; controller.abort(); };

@@ -8,6 +8,8 @@ export function selectionErrors(payload, ids, packageId) {
   if (!payload) return [];
   const chosen = new Set(ids);
   const errors = [];
+  const availableIds = new Set(optionsOf(payload).map(row => row.id));
+  if (ids.some(id => !availableIds.has(id))) errors.push('Состав предложения изменился. Проверьте выбор услуг');
   const pack = (payload.packages || []).find(row => row.id === packageId);
   if (packageId && (!pack || pack.option_ids.length !== ids.length || pack.option_ids.some(id => !chosen.has(id)))) errors.push('Состав комплекта изменён');
   if (payload.mode === 'packages' && !pack) errors.push('Выберите комплект');
@@ -26,4 +28,14 @@ export function chooseOption(payload, ids, groupId, optionId) {
   const group = payload.groups.find(row => row.id === groupId);
   const others = ids.filter(id => !group.options.some(row => row.id === id));
   return ids.includes(optionId) ? others : [...others, optionId];
+}
+
+export function restoreProposalSelection(quote) {
+  const selection = quote.selection || {};
+  const available = new Set(optionsOf(quote.payload).map(row => row.id));
+  const saved = selection.option_ids || [];
+  const ids = saved.filter(id => available.has(id));
+  const pack = (quote.payload.packages || []).find(row => row.id === selection.package_id);
+  const packageId = pack && pack.option_ids.length === ids.length && pack.option_ids.every(id => ids.includes(id)) ? pack.id : null;
+  return { ids, packageId, changed: saved.length > 0 && (ids.length !== saved.length || (selection.package_id || null) !== packageId || selection.revision !== quote.revision) };
 }
