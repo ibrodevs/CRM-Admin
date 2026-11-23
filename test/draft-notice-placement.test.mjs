@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire, Module } from 'node:module';
 import { readFileSync } from 'node:fs';
-import { draftsForRoute } from '../src/shared/drafts/workspaces.js';
+import { draftsForRoute, DRAFT_STAGES, filterDrafts } from '../src/shared/drafts/workspaces.js';
 const require = createRequire(import.meta.url);
 const babel = require('next/dist/compiled/babel/core');
 const entries = [
@@ -33,10 +33,16 @@ test('drafts can collapse and reopen without removal; deleting one requires conf
     useState: (initial) => { const i = index++; if (!(i in state)) state[i] = initial; return [state[i], (next) => { state[i] = next; }]; },
     useSyncExternalStore: (_subscribe, snapshot) => snapshot() };
   const mod = new Module(import.meta.filename);
-  mod.require = (name) => name === 'react' ? react : name.includes('icons') ? { Icon: 'Icon' } : name === './store.js' ? {} : name === './workspaces.js' ? { draftsForRoute } : require(name);
+  mod.require = (name) => name === 'react' ? react : name.includes('icons') ? { Icon: 'Icon' } : name === './store.js' ? {} : name === './workspaces.js' ? { draftsForRoute, DRAFT_STAGES, filterDrafts } : name.includes('Select.jsx') ? { Select: 'Select' } : require(name);
   mod._compile(babel.transformSync(readFileSync(new URL('../src/shared/drafts/Drafts.jsx', import.meta.url), 'utf8'), { filename: 'Drafts.jsx', presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, import.meta.filename);
   const show = () => { index = 0; return mod.exports.DraftWorkspaceList({ route: 'orders' }); };
   assert.equal(nodes(show()).filter((node) => node.props.className === 'draft-recovery-row').length, 2);
+  const stageFilter = nodes(show()).find(node => node.props['aria-label'] === 'Этап черновика');
+  stageFilter.props.onChange({target:{value:'results'}});
+  assert.equal(nodes(show()).filter(node => node.props.className === 'draft-recovery-row').length, 0);
+  assert.equal(cleared, null, 'filtering never deletes saved work');
+  nodes(show()).find(node => node.props.children === 'Сбросить').props.onClick();
+  assert.equal(nodes(show()).filter(node => node.props.className === 'draft-recovery-row').length, 2);
   const toggle = () => nodes(show()).find((node) => node.props.className === 'draft-workspace-toggle');
   toggle().props.onClick();
   assert.equal(toggle().props['aria-expanded'], false);
@@ -62,9 +68,9 @@ test('shared side panels never render the workspace draft list', () => {
   }
 });
 
-test('dashboard lists drafts next to agenda and tasks; shell scopes other sections', () => {
+test('dashboard lists drafts before tasks and metrics; shell scopes other sections', () => {
   const dashboard = readFileSync(new URL('../src/modules/dashboard/ui/DashboardPage.jsx', import.meta.url), 'utf8');
-  assert.match(dashboard, /<TodayAgenda[\s\S]*<DraftWorkspaceList\s*\/>/);
+  assert.ok(dashboard.indexOf('<DraftWorkspaceList />') < dashboard.indexOf('<DashboardKpiGrid'));
   const shell = readFileSync(new URL('../src/application/shell/AppShell.jsx', import.meta.url), 'utf8');
   assert.match(shell, /!== 'dashboard' && <DraftWorkspaceList route=\{route\}/);
 });

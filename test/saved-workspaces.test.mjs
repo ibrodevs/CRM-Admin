@@ -97,3 +97,23 @@ test('empty hotel search dismisses despite stale room wishes, without erasing it
   reopened.write(scope, 'occupancyRooms', [{ adults: 3, childrenAges: [] }]);
   assert.equal(reopened.hasWork(scope, 'Гостиница'), true, 'changed visible guest counts are meaningful input');
 });
+
+test('saved search results remain discoverable independently of the criteria record and stage filters compose', async () => {
+  const { filterDrafts } = await import('../src/shared/drafts/workspaces.js');
+  const disk = storage(), store = createDraftStore(disk, 'operator');
+  store.write('free-booking/FreeBookingFlightPanel', 'liveOffers', [{ id: 'real-offer' }]);
+  store.write('order/one/context', 'order', { id: 'one', no: 'ORD-1' });
+  store.write('order/one/OrderCard', 'bookingDraft', { step: 1 });
+  store.write('OrderCreateModal/new/false', 'clientQuery', 'Иван');
+  let entries = createDraftStore(disk, 'operator').workspaces();
+  const results = filterDrafts(entries, { stage: 'results', service: 'Авиабилеты' });
+  assert.equal(results.length, 1);assert.equal(results[0].type, 'free-booking');
+  assert.equal(filterDrafts(entries, { stage: 'checkout' })[0].orderId, 'one');
+  assert.equal(filterDrafts(entries, { stage: 'form' }).length, 1);
+  assert.equal(filterDrafts(entries, { stage: 'results', service: 'Отели' }).length, 0);
+  store.write('free-booking/DetailedSearchPanel', 'draft', [{ kind: 'Авиа' }]);
+  entries = store.workspaces();
+  assert.equal(filterDrafts(entries, { stage: 'selection' }).length, 1);
+  assert.equal(filterDrafts(entries, { stage: 'results' }).length, 0, 'a selection supersedes its cached search results');
+  assert.equal(filterDrafts(entries).length, 3);
+});

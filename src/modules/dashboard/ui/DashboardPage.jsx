@@ -943,6 +943,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
       <div className="dsh scroll">
         <SectionInfo section="dashboard" />
+        <DraftWorkspaceList />
         {shift && (
           <div className="card dsh-shift">
             <span className="dsh-shift-dot" />
@@ -975,8 +976,6 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
             onOpenCalendar={() => onNavigate('calendar')}
           />
         </div>
-
-        <DraftWorkspaceList />
 
         <div className="dsh-analytics section-workspace">
           <SalesChart
