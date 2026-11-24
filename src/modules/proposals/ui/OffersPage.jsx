@@ -1,4 +1,4 @@
-import { DraftWorkspaceList, useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
+import { DraftWorkspaceList, DraftScope, useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { proposalDraftEntries } from '../../../shared/drafts/workspaces.js';
 import { interactiveApi } from '../api/interactiveApi.js';
 import { ProposalRouteFields } from './ProposalRouteFields.jsx';
@@ -32,7 +32,7 @@ import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from '../../../leg
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { PAX_DEFAULT_OPTIONS } from '../../services/index.js';
 import { PanelSub, StackPanel } from '../../locations/index.js';
-import { AddServicePanel } from '../../orders/index.js';
+import { FreeBookingPanel } from '../../orders/index.js';
 import { documentsApi } from '../../documents/api.js';
 import { proposalsApi } from '../api/proposalsApi.js';
 import { servicesApi } from '../../services/api.js';
@@ -381,23 +381,31 @@ function OrderPickerDrawer({ onPick, onClose, orders = [], title = 'Выбор �
 
 
 
-function KpServicePicker({ participants = [], onAdd, onClose }) {
+function KpServicePicker({ participants = [], currency = getDefaultCurrency(), scopeId = 'standalone', onAdd, onClose }) {
   const toast = useToast();
   const [kind, setKind] = useState('Авиа');
-  const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...(typeof PAX_DEFAULT_OPTIONS !== 'undefined' ? PAX_DEFAULT_OPTIONS : {}) });
+  const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, currency, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...(typeof PAX_DEFAULT_OPTIONS !== 'undefined' ? PAX_DEFAULT_OPTIONS : {}) });
   const [added, setAdded] = useState(0);
-  const norm = (o, k) => ({ kind: KP_KIND_CODE[k] || k, offer: o._backendOfferId || o.offerId || o.backendOfferId || null, currency: resolveCurrency(o.currency), title: o.title || o.main || o.route || (o.from && o.to ? o.from + ' → ' + o.to : k), sub: o.sub || o.fareName || (typeof o.fare === 'string' ? o.fare : '') || '', cost: Number(o.cost ?? o.total ?? o.price?.amount ?? o.price ?? o.sum ?? 0), fee: Number(o.fee || 0) });
-  const add = (o, k) => { if (onAdd(norm(o, k)) === false) return; setAdded((n) => n + 1); toast('Услуга добавлена в форму варианта КП', 'info'); };
+  const norm = (o, k) => ({ kind: KP_KIND_CODE[k] || k, offer: o._backendOfferId || o.offerId || o.backendOfferId || o.selectedOffer?.id || null, currency: resolveCurrency(o.currency), title: o.title || o.main || o.route || (o.from && o.to ? o.from + ' → ' + o.to : k), sub: o.sub || o.fareName || (typeof o.fare === 'string' ? o.fare : '') || '', cost: Number(o.cost ?? o.total ?? o.price?.amount ?? o.price ?? o.sum), fee: Number(o.fee || 0) });
+  const add = (value, k) => {
+    const items = (Array.isArray(value) ? value : [value]).map(item => norm(item, k));
+    if (items.some(item => item.currency !== currency || !Number.isFinite(item.cost) || !Number.isFinite(item.fee))) { toast('Проверьте стоимость и валюту: выбранные услуги должны быть в валюте КП', 'warn'); return false; }
+    let accepted = 0;
+    for (const item of items) if (onAdd(item) !== false) accepted += 1;
+    if (!accepted) return false;
+    setAdded(n => n + accepted); toast(`Добавлено в КП: ${accepted}`, 'ok'); return true;
+  };
   return (
-    <StackPanel title="Подбор услуг для КП" width="min(1320px,96vw)" onClose={onClose}
+    <StackPanel closeOnBackdrop className="free-booking free-booking-workspace" title="Подбор услуг для КП" width="min(1320px,96vw)" onClose={onClose}
       footer={<>
-        <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>Добавлено в вариант: <b style={{ color: 'var(--ink)' }}>{added}</b></div>
+        <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>Добавлено в КП: <b style={{ color: 'var(--ink)' }}>{added}</b></div>
         <Button icon="check" onClick={onClose}>Готово</Button>
       </>}>
-      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>Выбирайте услуги — каждая сразу добавляется в текущий вариант предложения. Маска подбора идентична подбору в заказе.</div>
-      <AddServicePanel kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
-        paxCount={(aviaParams.pax.adt || 0) + (aviaParams.pax.chd || 0)} participants={participants}
-        onAddAvia={(r) => add(r, 'Авиа')} onAddOther={(o, k) => add(o, k)} />
+      <p className="kp-picker-hint">Выберите услуги через общую форму поиска. Они добавятся в черновик КП; бронирование не запускается.</p>
+      <DraftScope name={`kp-service-picker/${scopeId}`}>
+        <FreeBookingPanel selectionMode="proposal" kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
+          onAddAvia={item => add(item, 'Авиа')} onAddOther={(item, serviceKind) => add(item, serviceKind)} />
+      </DraftScope>
     </StackPanel>
   );
 }

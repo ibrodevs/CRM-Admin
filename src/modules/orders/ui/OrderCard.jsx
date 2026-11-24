@@ -2011,7 +2011,7 @@ function FreeBookingAviaResultRow({ opt, onView, embedded, onFlightFilter, onAir
 
 
 // FlightFarePanel presentation from 61593b4c, adapted to actual backend offers.
-function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd, onOfferUpdated, onSearchStay, searching}) {
+function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd, onOfferUpdated, onSearchStay, searching, selectionMode = 'booking' }) {
   const [searchEditing, setSearchEditing] = useState(false);
   const alternatives = freeFlightFareOptions(offer, offers);
   const [fareId, setFareId] = useDraftState(`FreeBookingFlightFarePanel/${offer.id}`, "fareId", offer.id);
@@ -2063,7 +2063,7 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd, onO
   };
   return <>
     <StackPanel closeOnBackdrop className="free-booking flight-fare-drawer" title="Класс и тариф по рейсу" width="min(1180px,96vw)" onClose={onClose}
-      footer={<><div className="flight-fare-total"><span>Итого за всех · пассажиров: {extrasPax.length}</span><b>{money(total, selected.currency)}</b><small>{classDetails.cabin} · {tier.name}</small><small>Бронь ещё не создана</small></div><Button disabled={searchEditing || searching} variant="secondary" icon="users" onClick={() => setPerPaxOpen(true)}>Пассажиры</Button><Button disabled={searchEditing || searching} variant="secondary" icon="plus" onClick={() => onAdd(freeFlightDraft(selected, params))}>В подборку</Button><Button disabled={searchEditing || searching} icon="chevRight" onClick={() => onAdd(freeFlightDraft(selected, params), { proceed: true })}>К оформлению</Button></>}>
+      footer={<><div className="flight-fare-total"><span>Итого за всех · пассажиров: {extrasPax.length}</span><b>{money(total, selected.currency)}</b><small>{classDetails.cabin} · {tier.name}</small><small>Бронь ещё не создана</small></div><Button disabled={searchEditing || searching} variant="secondary" icon="users" onClick={() => setPerPaxOpen(true)}>Пассажиры</Button>{selectionMode === 'proposal' ? <Button disabled={searchEditing || searching} icon="plus" onClick={() => onAdd(freeFlightDraft(selected, params))}>Добавить в КП</Button> : <><Button disabled={searchEditing || searching} variant="secondary" icon="plus" onClick={() => onAdd(freeFlightDraft(selected, params))}>В подборку</Button><Button disabled={searchEditing || searching} icon="chevRight" onClick={() => onAdd(freeFlightDraft(selected, params), { proceed: true })}>К оформлению</Button></>}</>}>
       <div className="free-booking"><FlightSearchHeader title={selected.airline} subtitle={routeTitle} supplier={selected.supplier} values={params} busy={searching} onSearch={onSearchStay} onEditingChange={setSearchEditing} renderAirport={(label, value, onChange) => <AirportField label={label} value={value} onChange={onChange} />} renderPassengers={(draft, update) => <FreeBookingPaxField pax={draft.pax} setPax={(pax) => update({ pax })} cabin={draft.cabin} setCabin={(cabin) => update({ cabin })} options={draft} setOptions={update} />}>
         <div className="card card-pad flight-fare-itinerary"><div className="flight-fare-itinerary-head"><AirlineLogo code={selected.airline} size="sm" /><b>{routeTitle}</b><span className="pill pill-gray" style={{ marginLeft: 'auto' }}>{classDetails.cabin} · класс {clsCode}</span></div>{legs.map((leg, i) => <LegTimeline key={i} opt={leg} title={legs.length > 1 ? `Сегмент ${i + 1}` : null} />)}</div>
       <FlightExtrasPreview offer={selected} onOpen={() => setExtrasOpen(true)} />
@@ -2078,7 +2078,7 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd, onO
 }
 
 // AviaSearchPanel mask from 61593b4cee50157943f8a004864e4885ab2c8d7c (before cfcc01e), with current provider offers.
-function FreeBookingFlightPanel({ params, setParams, onAdd }) {
+function FreeBookingFlightPanel({ params, setParams, onAdd, selectionMode = 'booking' }) {
   const toast = useToast();
   const [airportCode, setAirportCode] = useState(null);
   const p = params;
@@ -2233,12 +2233,12 @@ function FreeBookingFlightPanel({ params, setParams, onAdd }) {
       </div>
 
       {airportCode && <AirportDetailsDrawer code={airportCode} onClose={() => setAirportCode(null)} />}
-      {selected && <FreeBookingFlightFarePanel key={`${selected.id}:${JSON.stringify(p)}`} searching={loading} onSearchStay={async (draft) => { const version = selectionVersion.current; const found = await runSearch(draft); if (found !== false && found != null) { setParams(draft); if (version === selectionVersion.current) setSelected(found[0] || null); } return found; }} onOfferUpdated={(updated) => { setLiveOffers((current) => current.map((item) => item.id === updated.id ? updated : item)); setSelected((current) => current?.id === updated.id ? updated : current); }} offer={selected} offers={liveOffers} params={p} onClose={() => { selectionVersion.current += 1; setSelected(null); }} onAdd={(draft, options) => { onAdd(draft, options); setSelected(null); }} />}
+      {selected && <FreeBookingFlightFarePanel selectionMode={selectionMode} key={`${selected.id}:${JSON.stringify(p)}`} searching={loading} onSearchStay={async (draft) => { const version = selectionVersion.current; const found = await runSearch(draft); if (found !== false && found != null) { setParams(draft); if (version === selectionVersion.current) setSelected(found[0] || null); } return found; }} onOfferUpdated={(updated) => { setLiveOffers((current) => current.map((item) => item.id === updated.id ? updated : item)); setSelected((current) => current?.id === updated.id ? updated : current); }} offer={selected} offers={liveOffers} params={p} onClose={() => { selectionVersion.current += 1; setSelected(null); }} onAdd={(draft, options) => { const accepted = onAdd(draft, options); if (accepted !== false) setSelected(null); return accepted; }} />}
     </div>;
 }
 
 // Specialized forms and category order from 82f6c623. Keep current Hotelbook/data logic.
-function FreeBookingPanel({ kind, setKind, aviaParams, setAviaParams, onAddAvia, onAddOther }) {
+function FreeBookingPanel({ kind, setKind, aviaParams, setAviaParams, onAddAvia, onAddOther, selectionMode = 'booking' }) {
   const [visited, setVisited] = useState(() => new Set([kind]));
   useEffect(() => { setVisited((current) => current.has(kind) ? current : new Set([...current, kind])); }, [kind]);
   const currency = resolveCurrency(aviaParams.currency);
@@ -2250,7 +2250,7 @@ function FreeBookingPanel({ kind, setKind, aviaParams, setAviaParams, onAddAvia,
       </button>)}
     </div>
     {ADD_SVC_CATS.filter((cat) => visited.has(cat.kind)).map((cat) => <div className="free-booking-service-pane" key={cat.kind} hidden={kind !== cat.kind}>
-      {cat.kind === 'Авиа' ? <FreeBookingFlightPanel params={aviaParams} setParams={setAviaParams} onAdd={onAddAvia} />
+      {cat.kind === 'Авиа' ? <FreeBookingFlightPanel selectionMode={selectionMode} params={aviaParams} setParams={setAviaParams} onAdd={onAddAvia} />
         : cat.kind === 'Гостиница' ? <HotelPicker currency={currency} onApply={(offer) => onAddOther(offer, cat.kind)} onCancel={() => {}} />
         : cat.kind === 'ЖД' ? <FreeBookingRailFlow currency={currency} onAdd={onAddOther} />
         : cat.kind === 'Аэроэкспресс' ? <FreeBookingAeroAddFlow onAdd={onAddOther} />

@@ -43,3 +43,4 @@
 .kp-field-note{display:block;margin-top:7px;font-size:12px;line-height:1.5;color:var(--kp-muted)}
 .kp-route-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;min-width:0}
 @media(max-width:600px){.kp-route-fields{grid-template-columns:minmax(0,1fr)}}
+.kp-picker-hint{font-size:13px;color:var(--muted);line-height:1.5;margin:0 0 12px}
