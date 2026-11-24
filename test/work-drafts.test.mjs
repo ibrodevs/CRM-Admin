@@ -137,3 +137,15 @@ test('unfinished proposal creation is recoverable from the shared offers draft l
   restored.clear('proposal-create');
   assert.equal(draftsForRoute(restored.workspaces(), 'offers').length, 0);
 });
+
+test('saved KP searches resume in their own proposal without mixing with free booking', () => {
+  const store = createDraftStore(memory(), 'tenant:operator');
+  store.write('kp-service-picker/proposal-123/picker', 'title', 'Подбор услуг для КП');
+  store.write('kp-service-picker/proposal-123/picker', 'aviaParams', { trip: 'ow', from: 'MOW', to: 'LED' });
+  const entries = draftsForRoute(store.workspaces(), 'offers');
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].proposalId, 'proposal-123');
+  assert.equal(entries[0].scope, 'kp-service-picker/proposal-123');
+  store.clear(entries[0].scope);
+  assert.equal(draftsForRoute(store.workspaces(), 'offers').length, 0);
+});

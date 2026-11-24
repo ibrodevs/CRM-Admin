@@ -1,4 +1,5 @@
-import { DraftWorkspaceList, DraftScope, useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
+import { DraftCloseDialog } from '../../../shared/ui/DraftCloseDialog.jsx';
+import { DraftWorkspaceList, DraftScope, useDraftState, useDraftControls, useDraftStatus } from '../../../shared/drafts/Drafts.jsx';
 import { proposalDraftEntries } from '../../../shared/drafts/workspaces.js';
 import { interactiveApi } from '../api/interactiveApi.js';
 import { ProposalRouteFields } from './ProposalRouteFields.jsx';
@@ -381,11 +382,37 @@ function OrderPickerDrawer({ onPick, onClose, orders = [], title = 'Выбор �
 
 
 
-function KpServicePicker({ participants = [], currency = getDefaultCurrency(), scopeId = 'standalone', onAdd, onClose }) {
+function KpServicePicker({ scopeId = 'standalone', ...props }) {
+  return <DraftScope name={`kp-service-picker/${scopeId}`}><KpServicePickerContent {...props} scopeId={scopeId} /></DraftScope>;
+}
+
+function KpServicePickerContent({ participants = [], currency = getDefaultCurrency(), scopeId, onAdd, onClose, onSaveDraft, onDiscardSelection }) {
   const toast = useToast();
-  const [kind, setKind] = useState('Авиа');
-  const [aviaParams, setAviaParams] = useState({ trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, currency, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...(typeof PAX_DEFAULT_OPTIONS !== 'undefined' ? PAX_DEFAULT_OPTIONS : {}) });
+  const [kind, setKind] = useDraftState('picker', 'kind', 'Авиа');
+  const defaultParams = { trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, currency, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...(typeof PAX_DEFAULT_OPTIONS !== 'undefined' ? PAX_DEFAULT_OPTIONS : {}) };
+  const [aviaParams, setAviaParams] = useDraftState('picker', 'aviaParams', defaultParams);
   const [added, setAdded] = useState(0);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [closeError, setCloseError] = useState('');
+  const searchDrafts = useDraftControls();
+  const [, markSavedSearch] = useDraftState('picker', 'title', '');
+  const draftStatus = useDraftStatus();
+  const requestClose = () => {
+    if (saving) return;
+    setCloseError('');
+    if (added || searchDrafts.hasWork() || JSON.stringify(aviaParams) !== JSON.stringify(defaultParams)) setConfirmClose(true);
+    else onClose();
+  };
+  const saveAndClose = async () => {
+    if (saving || draftStatus.failed) return;
+    setSaving(true); setCloseError('');
+    try {
+      if (onSaveDraft && await onSaveDraft() === false) throw new Error('Не удалось сохранить КП. Продолжите работу и повторите сохранение.');
+      markSavedSearch('Подбор услуг для КП'); setConfirmClose(false); onClose();
+    } catch (error) { setCloseError(error.message); }
+    finally { setSaving(false); }
+  };
   const norm = (o, k) => ({ kind: KP_KIND_CODE[k] || k, offer: o._backendOfferId || o.offerId || o.backendOfferId || o.selectedOffer?.id || null, currency: resolveCurrency(o.currency), title: o.title || o.main || o.route || (o.from && o.to ? o.from + ' → ' + o.to : k), sub: o.sub || o.fareName || (typeof o.fare === 'string' ? o.fare : '') || '', cost: Number(o.cost ?? o.total ?? o.price?.amount ?? o.price ?? o.sum), fee: Number(o.fee || 0) });
   const add = (value, k) => {
     const items = (Array.isArray(value) ? value : [value]).map(item => norm(item, k));
@@ -396,16 +423,20 @@ function KpServicePicker({ participants = [], currency = getDefaultCurrency(), s
     setAdded(n => n + accepted); toast(`Добавлено в КП: ${accepted}`, 'ok'); return true;
   };
   return (
-    <StackPanel closeOnBackdrop className="free-booking free-booking-workspace" title="Подбор услуг для КП" width="min(1320px,96vw)" onClose={onClose}
+    <StackPanel closeOnBackdrop className="free-booking free-booking-workspace" title="Подбор услуг для КП" width="min(1320px,96vw)" onClose={requestClose}
       footer={<>
         <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>Добавлено в КП: <b style={{ color: 'var(--ink)' }}>{added}</b></div>
-        <Button icon="check" onClick={onClose}>Готово</Button>
+        <Button icon="check" onClick={requestClose}>Готово</Button>
       </>}>
       <p className="kp-picker-hint">Выберите услуги через общую форму поиска. Они добавятся в черновик КП; бронирование не запускается.</p>
-      <DraftScope name={`kp-service-picker/${scopeId}`}>
+
         <FreeBookingPanel selectionMode="proposal" kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
           onAddAvia={item => add(item, 'Авиа')} onAddOther={(item, serviceKind) => add(item, serviceKind)} />
-      </DraftScope>
+      <DraftCloseDialog open={confirmClose} title="Закрыть подбор для КП?" description="Сохранить параметры поиска и изменения предложения перед закрытием?"
+        saveDisabled={saving || draftStatus.failed}
+        note={closeError || (draftStatus.failed ? 'Не удалось сохранить поиск в браузере. Продолжите работу, чтобы не потерять данные.' : 'Параметры поиска сохранятся на этом устройстве, выбранные услуги — в черновике КП. Клиенту ничего не отправляется.')}
+        onCancel={() => !saving && setConfirmClose(false)} onSave={saveAndClose}
+        onDiscard={() => { if (saving) return; searchDrafts.clear(); onDiscardSelection?.(); setConfirmClose(false); onClose(); }} />
     </StackPanel>
   );
 }

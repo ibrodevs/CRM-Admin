@@ -4,17 +4,19 @@ import { createRequire, Module } from 'node:module';
 import { readFileSync } from 'node:fs';
 const require = createRequire(import.meta.url), babel = require('next/dist/compiled/babel/core');
 const nodes = n => Array.isArray(n) ? n.flatMap(nodes) : n?.props ? [n, ...nodes(n.props.children)] : [];
-function picker(onAdd = () => {}) {
-  const state = [], notifications = [];
-  const bindings = { useToast: () => (...args) => notifications.push(args), getDefaultCurrency: () => 'RUB', resolveCurrency: value => value || 'RUB', KP_KIND_CODE: { 'Авиа': 'avia', 'Гостиница': 'hotel' }, PAX_DEFAULT_OPTIONS: {}, ...Object.fromEntries(['StackPanel', 'Button', 'FreeBookingPanel', 'DraftScope'].map(key => [key, key])) };
+function picker(onAdd = () => {}, options = {}) {
+  const state = [], notifications = [], calls = []; let cursor = 0;
+  const useState = initial => { const i = cursor++; if (!(i in state)) state[i] = typeof initial === 'function' ? initial() : initial; return [state[i], next => { state[i] = typeof next === 'function' ? next(state[i]) : next; }]; };
+  const bindings = { useDraftState: (_scope, _field, initial) => useState(initial), useDraftControls: () => ({ hasWork: () => options.hasWork || false, clear: () => calls.push('clear') }), useDraftStatus: () => ({ failed: false }), useToast: () => (...args) => notifications.push(args), getDefaultCurrency: () => 'RUB', resolveCurrency: value => value || 'RUB', KP_KIND_CODE: { 'Авиа': 'avia', 'Гостиница': 'hotel' }, PAX_DEFAULT_OPTIONS: {}, ...Object.fromEntries(['StackPanel', 'Button', 'FreeBookingPanel', 'DraftScope', 'DraftCloseDialog'].map(key => [key, key])) };
   const source = readFileSync(new URL('../src/modules/proposals/ui/OffersPage.jsx', import.meta.url), 'utf8');
   const ast = babel.parseSync(source, { filename: 'OffersPage.jsx', presets: ['next/babel'], configFile: false, babelrc: false });
-  const fn = ast.program.body.find(n => n.type === 'FunctionDeclaration' && n.id.name === 'KpServicePicker');
+  const fn = ast.program.body.find(n => n.type === 'FunctionDeclaration' && n.id.name === 'KpServicePickerContent');
   const mod = new Module(import.meta.filename);
-  mod.require = name => name === 'react' ? { ...require('react'), useState(initial) { const i = state.length; state.push(initial); return [initial, next => { state[i] = typeof next === 'function' ? next(state[i]) : next; }]; } } : name === 'bindings' ? bindings : require(name);
-  mod._compile(babel.transformSync(`import React,{useState} from 'react';import {${Object.keys(bindings)}} from 'bindings';${source.slice(fn.start, fn.end)};export {KpServicePicker};`, { filename: 'picker.jsx', presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, import.meta.filename);
-  const tree = mod.exports.KpServicePicker({ currency: 'RUB', scopeId: 'proposal-123', onAdd, onClose() {} });
-  return { form: nodes(tree).find(n => n.type === 'FreeBookingPanel'), scope: nodes(tree).find(n => n.type === 'DraftScope'), state, notifications };
+  mod.require = name => name === 'react' ? { ...require('react'), useState } : name === 'bindings' ? bindings : require(name);
+  mod._compile(babel.transformSync(`import React,{useState} from 'react';import {${Object.keys(bindings)}} from 'bindings';${source.slice(fn.start, fn.end)};export {KpServicePickerContent};`, { filename: 'picker.jsx', presets: ['next/babel'], configFile: false, babelrc: false, envName: 'test' }).code, import.meta.filename);
+  const render = () => { cursor = 0; return mod.exports.KpServicePickerContent({ currency: 'RUB', scopeId: 'proposal-123', onAdd, onClose() { calls.push('close'); }, onSaveDraft: options.save, onDiscardSelection() { calls.push('discard'); } }); };
+  const tree = render();
+  return { form: nodes(tree).find(n => n.type === 'FreeBookingPanel'), panel: nodes(tree).find(n => n.type === 'StackPanel'), state, notifications, calls, render, dialog: () => nodes(render()).find(n => n.type === 'DraftCloseDialog') };
 }
 
 test('KP uses the same free booking component, with one default passenger and isolated search drafts', () => {
@@ -23,7 +25,7 @@ test('KP uses the same free booking component, with one default passenger and is
   assert.equal(h.form.props.selectionMode, 'proposal');
   assert.equal(h.form.props.aviaParams.pax.adt, 1);
   assert.equal(h.form.props.aviaParams.currency, 'RUB');
-  assert.equal(h.scope.props.name, 'kp-service-picker/proposal-123');
+  assert.equal(h.panel.props.closeOnBackdrop, true);
 });
 test('individual flight fares are added separately with real offer IDs and totals', () => {
   const added = [], h = picker(item => added.push(item));
@@ -39,4 +41,23 @@ test('a different currency or unknown price cannot be silently added as a free s
   assert.equal(added.length, 0);
   assert.equal(h.form.props.onAddOther({ cost: 0, currency: 'RUB', _backendOfferId: 'free' }, 'Гостиница'), true);
   assert.equal(added[0].offer, 'free');
+});
+
+test('an empty picker closes directly, and entered searches ask before leaving', () => {
+  const empty = picker(); empty.panel.props.onClose(); assert.deepEqual(empty.calls, ['close']);
+  const filled = picker(() => {}, { hasWork: true }); filled.panel.props.onClose();
+  assert.equal(filled.dialog().props.open, true); assert.deepEqual(filled.calls, []);
+  filled.dialog().props.onCancel(); assert.equal(filled.dialog().props.open, false); assert.deepEqual(filled.calls, []);
+});
+test('changed flight options also ask to save even before running a search', () => {
+  const h = picker(); h.form.props.setAviaParams({ ...h.form.props.aviaParams, trip: 'ow' });
+  nodes(h.render()).find(n => n.type === 'StackPanel').props.onClose();
+  assert.equal(h.dialog().props.open, true);
+});
+test('save closes only after success; failure keeps the picker and discard clears only its search', async () => {
+  const saved = picker(() => {}, { hasWork: true, save: async () => true }); saved.panel.props.onClose();
+  await saved.dialog().props.onSave(); assert.deepEqual(saved.calls, ['close']);
+  const failed = picker(() => {}, { hasWork: true, save: async () => false }); failed.panel.props.onClose();
+  await failed.dialog().props.onSave(); assert.deepEqual(failed.calls, []); assert.match(failed.dialog().props.note, /Не удалось/);
+  failed.dialog().props.onDiscard(); assert.deepEqual(failed.calls, ['clear', 'discard', 'close']);
 });

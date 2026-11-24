@@ -66,6 +66,9 @@ export function savedWorkspaces(records) {
     if (/^proposal-workspace\/[^/]+$/.test(scope)) {
       const proposalId = scope.split('/')[1];
       group = { id: `kp/${proposalId}`, scope, type: 'route', route: 'offers', proposalId, title: `КП · ${fields.form?.title || 'Предложение'}` };
+    } else if (/^kp-service-picker\/[^/]+\//.test(scope)) {
+      const proposalId = scope.split('/')[1];
+      if (proposalId !== 'standalone') group = { id: `kp/${proposalId}`, scope: `kp-service-picker/${proposalId}`, type: 'route', route: 'offers', proposalId, title: 'КП · сохранённый подбор услуг' };
     } else if (scope === 'proposal-create') {
       group = { id: scope, scope, type: 'new-proposal', route: 'offers', title: `Создание КП${fields.recipient ? ` · ${fields.recipient}` : ''}` };
     } else if (scope.startsWith('free-booking/')) {
