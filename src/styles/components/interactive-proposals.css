@@ -19,3 +19,8 @@
 @media(max-width:600px){.kp-edit-option-summary{flex-wrap:wrap}.kp-edit-option-summary>span{flex-basis:100%}}
 
 .kp-mobile-total{display:none}@media(max-width:600px){.kp-public{padding-bottom:108px}.kp-mobile-total{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;gap:16px;align-items:center;justify-content:space-between;background:var(--surface,#fff);border-top:1px solid var(--kp-line);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}.kp-mobile-total>div{display:grid;gap:4px}.kp-mobile-total span{font-size:12px;color:var(--kp-muted)}.kp-mobile-total strong{font-size:18px}}
+
+/* Keep registry controls separate from collapsed or expanded drafts. */
+.proposals-registry{display:flex;flex-direction:column;gap:20px;min-width:0}
+.proposals-registry>.registry-stats,.proposals-registry>.workspace-search-toolbar{margin:0}
+.proposals-registry>.workspace-search-toolbar{align-items:center}

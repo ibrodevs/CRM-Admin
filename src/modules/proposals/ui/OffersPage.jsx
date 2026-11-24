@@ -1625,7 +1625,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
   const STATS = [['Всего', counts()], ['Отправлено', counts('Отправлено клиенту')], ['На согласовании', counts('На согласовании')], ['Согласовано', counts('Согласовано')]];
 
   return (
-    <div className="fade-in">
+    <div className="fade-in proposals-registry">
       <DraftWorkspaceList route="offers" extraEntries={proposalDraftEntries(proposals, setEditTarget)} />
       <RegistryStats><div className="grid-4" style={{ marginBottom: 22 }}>
         {STATS.map(([l, v]) => (<div className="stat-card" key={l}><div className="s-label">{l}</div><div className="s-value">{v}</div></div>))}
