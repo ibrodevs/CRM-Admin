@@ -11,3 +11,17 @@ test('proposal context distinguishes trip dates from expiry and labels missing d
   assert.equal(proposalContext().dates, 'Даты поездки не указаны');
   assert.equal(proposalContext({ recipient: 'Компания' }).recipient, 'Компания');
 });
+
+test('separate route inputs preserve the other endpoint and older saved routes', async () => {
+  const { splitProposalRoute, setProposalRoutePoint } = await import('../src/modules/proposals/model/presentation.js');
+  assert.deepEqual(splitProposalRoute('Москва → Стамбул'), { from: 'Москва', to: 'Стамбул' });
+  assert.equal(setProposalRoutePoint('Москва → Стамбул', 'from', 'Бишкек'), 'Бишкек → Стамбул');
+  assert.equal(setProposalRoutePoint('', 'to', 'Москва'), ' → Москва');
+  assert.deepEqual(splitProposalRoute(' → Москва'), { from: '', to: 'Москва' });
+  assert.equal(setProposalRoutePoint(' → Москва', 'to', ''), '');
+});
+
+test('route editing retains spaces in multiword city names', async () => {
+  const { splitProposalRoute, setProposalRoutePoint } = await import('../src/modules/proposals/model/presentation.js');
+  assert.equal(splitProposalRoute(setProposalRoutePoint('Москва → Стамбул', 'from', 'Нижний ')).from, 'Нижний ');
+});

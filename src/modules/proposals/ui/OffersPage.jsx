@@ -1,7 +1,8 @@
 import { DraftWorkspaceList, useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { proposalDraftEntries } from '../../../shared/drafts/workspaces.js';
 import { interactiveApi } from '../api/interactiveApi.js';
-import { proposalContext, readableServiceTitle } from '../model/presentation.js';
+import { ProposalRouteFields } from './ProposalRouteFields.jsx';
+import { proposalContext, readableServiceTitle, splitProposalRoute } from '../model/presentation.js';
 import { InteractiveProposal } from './InteractiveProposal.jsx';
 import { PageActionProvider, PageActions } from '../../../shared/ui/PageActions.jsx';
 import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
@@ -1109,6 +1110,7 @@ function KPCreateModal({ open, onClose, onCreated, orders = [] }) {
   async function submit() {
     if (busy) return;
     if (!recipient.trim() && !selected?.client) { toast('Укажите, для кого готовите предложение', 'warn'); return; }
+    if (route && (!splitProposalRoute(route).from.trim() || !splitProposalRoute(route).to.trim())) { toast('Укажите оба города: откуда и куда', 'warn'); return; }
     if (end && (!start || ufDateIso(end) < ufDateIso(start))) { toast('Проверьте период поездки', 'warn'); return; }
     setBusy(true);
     try {
@@ -1128,13 +1130,13 @@ function KPCreateModal({ open, onClose, onCreated, orders = [] }) {
       <section className="kp-section"><h2>Клиент и поездка</h2>
         <div className="kp-form-grid">
           <Field label="Для кого предложение" required><Input locationAutocomplete={false} value={recipient} maxLength={255} onChange={e => setRecipient(e.target.value)} placeholder="Имя клиента или компания" /></Field>
-          <Field label="Заказ" hint="Можно связать позже"><Button variant="secondary" iconRight="chevRight" onClick={() => setOrderPickerOpen(true)}>{selected ? `Заказ ${selected.no}` : 'Выбрать заказ'}</Button>{selected && <Button variant="ghost" size="sm" onClick={() => setOrderNo('')}>Отвязать</Button>}</Field>
-          <Field label="Маршрут / направление"><Input locationAutocomplete={false} value={route} maxLength={500} onChange={e => setRoute(e.target.value)} placeholder="Например: Москва → Стамбул" /></Field>
-          <Field label="Валюта предложения"><Select value={currency} options={CURRENCIES.map(item => ({ value: item.code, label: `${item.code} · ${item.name}` }))} onChange={e => setCurrency(e.target.value)} /></Field>
+          <Field label="Заказ"><div className="kp-create-order"><Button size="field" variant="secondary" iconRight="chevRight" onClick={() => setOrderPickerOpen(true)}>{selected ? `Заказ ${selected.no}` : 'Выбрать заказ'}</Button>{selected && <Button variant="ghost" size="sm" onClick={() => setOrderNo('')}>Отвязать</Button>}</div><span className="kp-field-note">Можно связать позже</span></Field>
+          <ProposalRouteFields value={route} onChange={setRoute} />
           <UFDateField label="Начало поездки" value={start} onChange={setStart} minDate={new Date()} />
           <UFDateField label="Окончание поездки" value={end} onChange={setEnd} minDate={start || new Date()} />
+          <Field label="Название предложения"><Input locationAutocomplete={false} value={title} maxLength={255} onChange={e => setTitle(e.target.value)} placeholder={route || 'Например: Командировка в Стамбул'} /></Field>
+          <Field label="Валюта предложения"><Select value={currency} options={CURRENCIES.map(item => ({ value: item.code, label: `${item.code} · ${item.name}` }))} onChange={e => setCurrency(e.target.value)} /></Field>
         </div>
-        <Field label="Название предложения"><Input locationAutocomplete={false} value={title} maxLength={255} onChange={e => setTitle(e.target.value)} placeholder={route || 'Например: Командировка в Стамбул'} /></Field>
       </section>
       <section className="kp-section"><Field label="Комментарий для клиента" hint="Необязательно, попадёт в предложение"><textarea className="input" rows={3} maxLength={4000} value={note} onChange={e => setNote(e.target.value)} placeholder="Цель поездки и важные условия…" /></Field></section>
       <p className="kp-explanation">Сейчас создаётся только черновик в CRM. В конструкторе добавьте варианты услуг и создайте ссылку для клиента. Письмо не отправляется, бронирование не запускается.</p>

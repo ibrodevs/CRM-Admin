@@ -38,3 +38,8 @@
 .kp-publish-summary{font-size:14px;line-height:1.5}.kp-publish-summary p{margin:10px 0}
 @media(max-width:600px){.kp-context-card{grid-template-columns:minmax(0,1fr);gap:12px}.kp-workspace-drawer .drawer-foot .kp-inline-actions{width:100%}.kp-workspace-drawer .drawer-foot .kp-inline-actions>.btn{flex:1;white-space:normal}}
 .kp-workspace-drawer .drawer-foot>.kp-inline-actions:only-child{width:100%;justify-content:flex-end}
+.kp-create-order{display:flex;gap:8px;align-items:center;min-width:0}
+.kp-create-order>.btn:first-child{flex:1;min-width:0;justify-content:space-between}
+.kp-field-note{display:block;margin-top:7px;font-size:12px;line-height:1.5;color:var(--kp-muted)}
+.kp-route-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;min-width:0}
+@media(max-width:600px){.kp-route-fields{grid-template-columns:minmax(0,1fr)}}
