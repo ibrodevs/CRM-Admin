@@ -61,11 +61,13 @@ export function savedWorkspaces(records) {
   if (lastOrder?.id && !contexts.has(String(lastOrder.id))) contexts.set(String(lastOrder.id), lastOrder);
   for (const record of records) {
     const { scope, fields } = record;
-    if (!hasDraftWork(fields)) continue;
+    if (!hasDraftWork(fields) && !(scope === 'proposal-create' && ['recipient', 'route', 'start', 'end', 'orderNo', 'note', 'createdId'].some(key => filled(fields[key])))) continue;
     let group;
     if (/^proposal-workspace\/[^/]+$/.test(scope)) {
       const proposalId = scope.split('/')[1];
       group = { id: `kp/${proposalId}`, scope, type: 'route', route: 'offers', proposalId, title: `КП · ${fields.form?.title || 'Предложение'}` };
+    } else if (scope === 'proposal-create') {
+      group = { id: scope, scope, type: 'new-proposal', route: 'offers', title: `Создание КП${fields.recipient ? ` · ${fields.recipient}` : ''}` };
     } else if (scope.startsWith('free-booking/')) {
       group = { id: 'free-booking', scope: 'free-booking', type: 'free-booking', title: 'Подбор услуг без заказа' };
     } else if (/^order\/[^/]+\//.test(scope)) {
@@ -107,7 +109,7 @@ export function draftsForRoute(entries, route) {
   const section = route.split('/')[0];
   return entries.filter((entry) => section === 'dashboard'
     || (section === 'orders' && ['order', 'new-order'].includes(entry.type))
-    || (entry.type === 'route' && entry.route === section));
+    || (['route', 'new-proposal'].includes(entry.type) && entry.route === section));
 }
 
 const PROPOSAL_KINDS = { avia: 'Авиабилеты', hotel: 'Отели', transfer: 'Трансферы', rail: 'ЖД билеты', insurance: 'Страхование', bus: 'Автобусы', lounge: 'Бизнес-залы', aeroexpress: 'Аэроэкспресс', tour: 'Туры', other: 'Другие услуги' };

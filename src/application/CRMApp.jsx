@@ -81,6 +81,8 @@ function App() {
     if (!auth.user || !target || !roleCanSee(role, target)) { toast('Нет доступа к разделу с этим черновиком', 'warn'); return false; }
     if (draft.proposalId) {
       setRoute('offers'); setIntent({ type: 'open', id: draft.proposalId }); setCtxOrder(null);
+    } else if (draft.type === 'new-proposal') {
+      setRoute('offers'); setIntent({ type: 'create' }); setCtxOrder(null);
     } else if (draft.type === 'order') {
       const order = orders.find((item) => String(item.id) === String(draft.orderId));
       if (!order) { toast('Заказ не найден среди доступных. Обновите список заказов или проверьте доступ.', 'warn'); return false; }

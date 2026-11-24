@@ -24,3 +24,17 @@
 .proposals-registry{display:flex;flex-direction:column;gap:20px;min-width:0}
 .proposals-registry>.registry-stats,.proposals-registry>.workspace-search-toolbar{margin:0}
 .proposals-registry>.workspace-search-toolbar{align-items:center}
+
+.kp-context-card{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding:18px 20px;border:1px solid var(--kp-line);border-radius:14px;background:var(--surface)}
+.kp-context-card>div,.kp-publication-state,.kp-public-context,.kp-publish-summary{display:grid;gap:6px;min-width:0}
+.kp-context-card span,.kp-publication-state>span{font-size:12px;line-height:1.5;color:var(--kp-muted)}
+.kp-context-card strong{font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.kp-publication-state{border:1px solid var(--kp-line);border-radius:12px;padding:14px 16px;font-size:13px}
+.kp-public-context{font-size:14px;line-height:1.5;margin:12px 0;color:var(--kp-muted)}
+.kp-link-bar a:not(.btn){font-size:12px;overflow-wrap:anywhere;color:var(--blue)}
+.kp-registry-context{display:grid;gap:5px;min-width:180px;max-width:300px;line-height:1.45}
+.kp-registry-context strong{font-size:13px}.kp-registry-context span,.kp-registry-context small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.kp-workspace .kp-package-editor .kp-check{font-weight:400}.kp-package-editor .kp-edit-option{padding:14px 0}
+.kp-publish-summary{font-size:14px;line-height:1.5}.kp-publish-summary p{margin:10px 0}
+@media(max-width:600px){.kp-context-card{grid-template-columns:minmax(0,1fr);gap:12px}.kp-workspace-drawer .drawer-foot .kp-inline-actions{width:100%}.kp-workspace-drawer .drawer-foot .kp-inline-actions>.btn{flex:1;white-space:normal}}
+.kp-workspace-drawer .drawer-foot>.kp-inline-actions:only-child{width:100%;justify-content:flex-end}

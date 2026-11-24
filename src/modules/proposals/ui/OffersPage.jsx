@@ -1,5 +1,7 @@
-import { DraftWorkspaceList } from '../../../shared/drafts/Drafts.jsx';
+import { DraftWorkspaceList, useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
 import { proposalDraftEntries } from '../../../shared/drafts/workspaces.js';
+import { interactiveApi } from '../api/interactiveApi.js';
+import { proposalContext, readableServiceTitle } from '../model/presentation.js';
 import { InteractiveProposal } from './InteractiveProposal.jsx';
 import { PageActionProvider, PageActions } from '../../../shared/ui/PageActions.jsx';
 import { RegistryStats } from '../../../shared/ui/RegistryStats.jsx';
@@ -10,7 +12,7 @@ import { BrandMark, ChannelIcon, Icon } from '../../../shared/icons/index.jsx';
 import { ActionMenu } from '../../../shared/ui/ActionMenu.jsx';
 import { Avatar } from '../../../shared/ui/Avatar.jsx';
 import { Button } from '../../../shared/ui/Button.jsx';
-import { Drawer } from '../../../shared/ui/Overlays.jsx';
+import { Drawer, ConfirmDialog } from '../../../shared/ui/Overlays.jsx';
 import { EmptyState } from '../../../shared/ui/EmptyState.jsx';
 import { Field } from '../../../shared/ui/Field.jsx';
 import { FilterChip } from '../../../shared/ui/FilterChip.jsx';
@@ -23,7 +25,7 @@ import { Th, useSort } from '../../../shared/ui/Table.jsx';
 import { TimeField, fmtDate } from '../../../shared/ui/DateFields.jsx';
 import { plural } from '../../../shared/ui/plural.js';
 import { useToast } from '../../../shared/ui/Toast.jsx';
-import { UFDateField } from '../../../shared/ui/UnifiedDateField.jsx';
+import { UFDateField, ufDateIso } from '../../../shared/ui/UnifiedDateField.jsx';
 import { CURRENCIES, CURRENT_USER, KP_STATUS, KP_STATUS_FLOW, OPERATORS, ORDERS, ORDER_PARTICIPANTS, ORDER_SERVICES, ORDER_STATUS, PROPOSALS, SERVICE_KIND } from '../../../legacy/data/index.jsx';
 import { SEND_CHANNELS, orderClientChannel, sendChannelMeta } from '../../../legacy/data/access-control.jsx';
 import { Topbar } from '../../../shared/ui/Topbar.jsx';
@@ -35,7 +37,6 @@ import { proposalsApi } from '../api/proposalsApi.js';
 import { servicesApi } from '../../services/api.js';
 import { toLegacyProposal } from '../../../legacy/adapters/legacy-adapters.js';
 import { resultsOf } from '../../../shared/api/client.js';
-import { kpBriefItems, parseKpRequest } from '../model/request-parser.js';
 import { currencySymbol, getDefaultCurrency, resolveCurrency } from '../../../shared/lib/money.js';
 import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
 
@@ -486,7 +487,7 @@ function KPModule({ order, services, participants, onApprove }) {
       const validUntil = new Date(); validUntil.setDate(validUntil.getDate() + 7);
       const currency = resolveCurrency(items[0]?.currency, order.currency, order.base_currency);
       if (items.some(item => resolveCurrency(item.currency, currency) !== currency)) throw new Error('Разделите услуги разных валют по отдельным КП');
-      const created = await proposalsApi.create({ order: order.id, type: 'standard', purpose: 'Предложение клиенту', currency, valid_until: validUntil.toISOString(), variants: [{ name, items: items.map((item) => proposalItemPayload(item, currency)) }] });
+      const created = await proposalsApi.create({ order: order.id, recipient: order.client || '', type: 'standard', purpose: 'Предложение клиенту', currency, valid_until: validUntil.toISOString(), variants: [{ name, items: items.map((item) => proposalItemPayload(item, currency)) }] });
       const proposal = toLegacyProposal(created, [order]);
       setProposals((list) => [proposal, ...list]); setActiveId(proposal.id); setActiveVar(proposal.variants[0]?.id || null); setView('edit');
       toast('Черновик КП создан', 'ok');
@@ -1088,252 +1089,59 @@ function kpDefaultValidDate() {
   const date = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   return date.toLocaleDateString('ru-RU');
 }
-function KPCreateModal({ open, onClose, onCreated, onOpenOrder, orders = [] }) {
+function KPCreateModal({ open, onClose, onCreated, orders = [] }) {
   const toast = useToast();
-  // Шаблоны КП создаёт сама организация: список приходит с backend, а не из
-  // зашитого в код набора демонстрационных пакетов.
-  const [templates, setTemplates] = useState([]);
-  const [source, setSource] = useState('manual');
-  const [sourceNote, setSourceNote] = useState('');
-  const [orderNo, setOrderNo] = useState('');
-  const [kpType, setKpType] = useState(KP_PURPOSE_TYPES[0]);
-  const [docType, setDocType] = useState('generic');
-  const [name, setName] = useState('');
-  const [recipient, setRecipient] = useState('');
-  const [responsible, setResponsible] = useState((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]);
-  const [currency, setCurrency] = useState(getDefaultCurrency);
-  const [valid, setValid] = useState(kpDefaultValidDate());
-  const [validTime, setValidTime] = useState('18:00');
-  const [validTz, setValidTz] = useState('Бишкек (UTC+6)');
-  const [payTerm, setPayTerm] = useState('');
-  const [base, setBase] = useState('manual');
+  const [recipient, setRecipient] = useDraftState('proposal-create', 'recipient', '');
+  const [title, setTitle] = useDraftState('proposal-create', 'title', '');
+  const [route, setRoute] = useDraftState('proposal-create', 'route', '');
+  const [start, setStart] = useDraftState('proposal-create', 'start', '');
+  const [end, setEnd] = useDraftState('proposal-create', 'end', '');
+  const [orderNo, setOrderNo] = useDraftState('proposal-create', 'orderNo', '');
+  const [currency, setCurrency] = useDraftState('proposal-create', 'currency', getDefaultCurrency);
+  const [note, setNote] = useDraftState('proposal-create', 'note', '');
   const [busy, setBusy] = useState(false);
   const [orderPickerOpen, setOrderPickerOpen] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    setSource('manual');
-    setSourceNote('');
-    setOrderNo('');
-    setKpType(KP_PURPOSE_TYPES[0]);
-    setDocType('generic');
-    setName('');
-    setRecipient('');
-    setResponsible((typeof CURRENT_USER !== 'undefined' && CURRENT_USER.name) || OPERATORS[0]);
-    setCurrency(getDefaultCurrency());
-    setValid(kpDefaultValidDate());
-    setValidTime('18:00');
-    setValidTz('Бишкек (UTC+6)');
-    setPayTerm('');
-    setBase('manual');
-    setBusy(false);
-    const controller = new AbortController();
-    proposalsApi.templates(controller.signal)
-      .then((payload) => { if (!controller.signal.aborted) setTemplates(resultsOf(payload).map(proposalTemplateToUi)); })
-      .catch((error) => { if (error.name !== 'AbortError') toast(error.message || 'Не удалось загрузить шаблоны КП', 'err'); });
-    return () => controller.abort();
-  }, [open]);
-  const baseOpts = [
-    { value: 'manual', label: 'Подобрать услуги вручную' },
-    { value: 'services', label: 'Использовать услуги заказа' },
-    { value: 'recognize', label: 'Распознать запрос из чата / текста' },
-    { value: 'copy', label: 'Скопировать существующий вариант' },
-    { value: 'empty', label: 'Пустой вариант' },
-    ...templates.map((t) => ({ value: 'tpl:' + t.id, label: 'Шаблон: ' + t.name })),
-  ];
-  const sourceFlow = KP_SOURCE_FLOW[source] || KP_SOURCE_FLOW.order;
-  const selOrder = (orders.length ? orders : (typeof ORDERS !== 'undefined' ? ORDERS : [])).find((o) => String(o.no) === String(orderNo));
-  const brief = parseKpRequest(sourceNote);
-  const inputLabel = source === 'manual' ? 'Описание задачи или текст клиента' : (sourceFlow.inputLabel || 'Комментарий к заказу');
-  const inputPlaceholder = sourceFlow.inputPlaceholder || 'Можно вставить текст заявки, переписку или оставить короткий комментарий…';
-
-  const build = async () => {
-    const order = selOrder;
-    let items = [], vname = name || 'Вариант 1';
-    if (base === 'services' && order) items = (ORDER_SERVICES || []).map((s) => ({ title: s.title, description: s.sub || '', quantity: 1, price_amount: String(s.sum || 0), price_currency: currency }));
-    else if (brief.services.length && (base === 'recognize' || ['request', 'chat', 'email'].includes(source))) {
-      items = kpBriefItems(brief, currency, sourceNote);
-      if (!name && brief.route) vname = brief.route;
-    }
-    else if (base.indexOf('tpl:') === 0) {
-      const t = templates.find((x) => x.id === base.slice(4));
-      if (t) {
-        items = t.items.map((s) => ({ title: s.title, description: s.sub || '', quantity: 1, price_amount: String(Number(s.cost || 0) + Number(s.fee || 0)), price_currency: currency }));
-        if (!name) vname = t.name;
-      }
-    }
-    const validIso = (() => {
-      const m = String(valid || '').match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-      const date = m ? new Date(`${m[3]}-${m[2]}-${m[1]}T${validTime || '18:00'}:00`) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      return date.toISOString();
-    })();
-    const created = await proposalsApi.create({
-      order: order?.id || null,
-      type: docType === 'train' ? 'train' : 'standard',
-      purpose: kpType,
-      source,
-      source_text: sourceNote.trim(),
-      recipient: (recipient || brief.contact || order?.client || '').trim(),
-      payment_terms: payTerm.trim(),
-      brief: {
-        route: brief.route,
-        dates: brief.dates,
-        passengers: brief.passengers,
-        services: brief.services,
-        budget: brief.budget,
-        currency: brief.currency,
-        preferences: brief.preferences,
-      },
-      currency,
-      valid_until: validIso,
-      variants: [{ name: docType === 'train' ? 'Поезд + проживание' : vname, items }],
-    });
-    return { np: toLegacyProposal(created, order ? [order] : []), order };
-  };
-  const submit = async (mode) => {
+  const [createdId, setCreatedId] = useDraftState('proposal-create', 'createdId', '');
+  const controls = useDraftControls('proposal-create');
+  const [closePrompt, setClosePrompt] = useState(false);
+  const close = () => { if (busy) return; if (recipient || title || route || start || end || orderNo || note) setClosePrompt(true); else onClose(); };
+  const selected = orders.find(order => String(order.no) === String(orderNo));
+  async function submit() {
     if (busy) return;
+    if (!recipient.trim() && !selected?.client) { toast('Укажите, для кого готовите предложение', 'warn'); return; }
+    if (end && (!start || ufDateIso(end) < ufDateIso(start))) { toast('Проверьте период поездки', 'warn'); return; }
     setBusy(true);
     try {
-      const { np, order } = await build();
-      onCreated && onCreated(np, mode);
-      if (mode === 'pick' && order) {
-        toast('КП ' + np.id + ': переходим к подбору услуг', 'ok');
-        onClose();
-        onOpenOrder && onOpenOrder(order, 'services');
-      } else if (mode === 'builder' && order) {
-        toast('КП ' + np.id + ': открываем конструктор', 'ok');
-        onClose();
-        /* Registry opens the shared constructor for the new proposal. */
-      } else {
-        toast('Черновик КП ' + np.id + ' создан' + (order ? '' : ' без привязки к заказу'), 'ok');
-        onClose();
-      }
-    } catch (error) {
-      toast(error.message || 'Не удалось создать КП', 'err');
-    } finally {
-      setBusy(false);
-    }
-  };
+      // Retain the created ID if the second request fails, so Retry cannot duplicate a proposal.
+      const created = createdId ? await proposalsApi.detail(createdId) : await proposalsApi.create({ order: selected?.id || null, currency, recipient: (recipient || selected?.client || '').trim(), purpose: title.trim() || route.trim() || 'Предложение поездки', source: selected ? 'order' : 'manual', source_text: note.trim(), variants: [] });
+      setCreatedId(created.id);
+      const workspace = await interactiveApi.get(created.id);
+      await interactiveApi.save(created.id, workspace.version, { ...workspace.draft, title: title.trim() || route.trim() || 'Предложение поездки', recipient: (recipient || selected?.client || '').trim(), route: route.trim(), travel_start: ufDateIso(start), travel_end: ufDateIso(end), intro: note.trim(), currency });
+      onCreated?.(toLegacyProposal(await proposalsApi.detail(created.id), selected ? [selected] : []), 'builder');
+      controls.clear(); onClose();
+    } catch (error) { toast(error.message || 'Не удалось создать КП', 'err'); }
+    finally { setBusy(false); }
+  }
   if (!open) return null;
-  return (
-    <Drawer open={open} onClose={onClose} title="Новое коммерческое предложение"
-      width="min(980px,97vw)"
-      sub="Начните с любых доступных данных. Заказ, текст заявки и условия можно добавить позже."
-      footer={<div className="kp-create-footer">
-        <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button iconRight="arrowRight" disabled={busy} onClick={() => submit(selOrder ? 'builder' : 'draft')}>
-          {busy ? 'Создаём…' : (selOrder ? 'Создать и открыть конструктор' : 'Создать КП без заказа')}
-        </Button>
-      </div>}>
-      <div className="kp-create-form">
-        <section className="kp-create-section">
-          <div className="kp-section-title">1. Откуда берём данные</div>
-          <div className="kp-section-sub">Выбор источника помогает подписать историю КП, но ничего не делает обязательным.</div>
-          <div className="kp-source-grid">
-            {KP_SOURCES.map((item) => (
-              <button key={item.value} type="button" onClick={() => {
-                setSource(item.value);
-                setBase((KP_SOURCE_FLOW[item.value] || KP_SOURCE_FLOW.manual).base);
-              }} className={'src-btn' + (source === item.value ? ' active' : '')}>
-                <Icon name={item.icon} style={{ width: 15, height: 15 }} />{item.label}
-              </button>
-            ))}
-          </div>
-          <Field label={inputLabel} hint="необязательно">
-            <textarea
-              className="input kp-source-text"
-              value={sourceNote}
-              onChange={(event) => setSourceNote(event.target.value)}
-              placeholder={inputPlaceholder}
-              rows={5}
-            />
-          </Field>
-          {sourceNote.trim() && (
-            <div className={'kp-recognition ' + (brief.hasData ? 'ok' : 'empty')}>
-              <div className="kp-recognition-head">
-                <span><Icon name={brief.hasData ? 'check' : 'alertCircle'} />{brief.hasData ? 'Данные распознаны' : 'Конкретные параметры пока не найдены'}</span>
-                {brief.hasData && <Pill tone="green">автоматически</Pill>}
-              </div>
-              {brief.hasData ? <>
-                <div className="kp-recognition-grid">
-                  {brief.recognized.map((value) => <div key={value}>{value}</div>)}
-                  {brief.preferences.length > 0 && <div>Пожелания: {brief.preferences.join(', ')}</div>}
-                </div>
-                {brief.missing.length > 0 && <div className="kp-recognition-missing">Можно уточнить позже: {brief.missing.join(', ')}</div>}
-                {(brief.contact || brief.currency) && (
-                  <Button size="sm" variant="secondary" onClick={() => {
-                    if (brief.contact) setRecipient(brief.contact);
-                    if (brief.currency) setCurrency(brief.currency);
-                  }}>Подставить найденные данные в форму</Button>
-                )}
-              </> : <div className="kp-recognition-missing">Текст всё равно сохранится в КП. Маршрут, даты и услуги можно заполнить вручную в конструкторе.</div>}
-            </div>
-          )}
-        </section>
-
-        <section className="kp-create-section">
-          <div className="kp-section-title">2. Клиент и заказ</div>
-          <div className="kp-section-sub">КП можно создать самостоятельно и привязать к заказу в любой момент.</div>
-          <div className="kp-client-grid">
-            <Field label="Получатель / клиент" hint="необязательно">
-              <Input value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="Имя, компания или контактное лицо" />
-            </Field>
-            <Field label="Связать с заказом" hint="необязательно">
-              <div className="kp-order-control">
-                <button type="button" className="input kp-order-button" onClick={() => setOrderPickerOpen(true)}>
-                  {selOrder
-                    ? <><Icon name="briefcase" /><b>№ {selOrder.no}</b><span>· {selOrder.client}</span></>
-                    : <><Icon name="briefcase" /><span>Выбрать существующий заказ…</span></>}
-                  <Icon name="chevRight" />
-                </button>
-                {selOrder && <button type="button" className="kp-order-clear" onClick={() => { setOrderNo(''); if (base === 'services') setBase('manual'); }}>Отвязать</button>}
-              </div>
-            </Field>
-          </div>
-          {selOrder && (
-            <div className="kp-order-summary">
-              <Pill tone="blue">Клиент: {selOrder.client}</Pill>
-              <Pill tone="gray">Тип: {selOrder.requestType}</Pill>
-              <Pill tone="gray">Услуга: {selOrder.service}</Pill>
-            </div>
-          )}
-        </section>
-
-        <section className="kp-create-section">
-          <div className="kp-section-title">3. Настройки предложения</div>
-          <div className="kp-settings-grid">
-            <Field label="Тип КП"><Select options={KP_PURPOSE_TYPES} value={kpType} onChange={(event) => setKpType(event.target.value)} /></Field>
-            <Field label="Структура"><Select options={KP_DOC_TYPES} value={docType} onChange={(event) => setDocType(event.target.value)} /></Field>
-            <Field label="Название варианта" hint="необязательно"><Input value={name} onChange={(event) => setName(event.target.value)} placeholder={brief.route || 'Например: Прямые рейсы'} /></Field>
-            <Field label="Валюта"><Select options={CURRENCIES.map((item) => ({ value: item.code, label: `${item.code} · ${item.name}` }))} value={currency} onChange={(event) => setCurrency(event.target.value)} /></Field>
-            <Field label="Наполнение первого варианта">
-              <Select options={baseOpts.filter((option) => option.value !== 'services' || selOrder)} value={base === 'services' && !selOrder ? 'manual' : base} onChange={(event) => setBase(event.target.value)} />
-            </Field>
-            <Field label="Ответственный"><Select options={OPERATORS} value={responsible} onChange={(event) => setResponsible(event.target.value)} /></Field>
-          </div>
-          <div className="kp-deadline-card">
-            <div className="kp-deadline-title">Срок действия и оплата</div>
-            <div className="kp-validity-row">
-              <UFDateField label="Действует до" value={valid || null} onChange={(value) => setValid(value)} placeholder="дд.мм.гггг" />
-              <TimeField label="Время" value={validTime} onChange={(value) => setValidTime(value)} />
-              <Field label="Часовой пояс"><Select options={['Бишкек (UTC+6)', 'Алматы (UTC+5)', 'МСК (UTC+3)', 'Дубай (UTC+4)', 'UTC']} value={validTz} onChange={(event) => setValidTz(event.target.value)} /></Field>
-            </div>
-            <Field label="Условия оплаты" hint="необязательно">
-              <Input value={payTerm} onChange={(event) => setPayTerm(event.target.value)} placeholder="Например: 100% до подтверждения или в течение 3 дней" />
-            </Field>
-          </div>
-        </section>
-
-        <div className="kp-create-ready">
-          <Icon name="check" />
-          <div>
-            <b>Можно создавать</b>
-            <span>{selOrder ? `КП будет связано с заказом № ${selOrder.no}.` : 'КП сохранится как самостоятельный черновик — заказ не требуется.'} {brief.services.length ? `В конструктор добавим позиции: ${brief.services.map((item) => item.title).join(', ')}.` : 'Услуги можно добавить после создания.'}</span>
-          </div>
+  return <Drawer open onClose={close} title="Создать коммерческое предложение" sub="Укажите клиента и поездку, затем подберите услуги в конструкторе." width="min(760px,96vw)" className="kp-workspace-drawer" footer={<div className="kp-inline-actions"><Button variant="secondary" disabled={busy} onClick={close}>Закрыть</Button><Button disabled={busy} onClick={submit}>{busy ? 'Создаём…' : 'Открыть конструктор'}</Button></div>}>
+    <div className="kp-workspace">
+      <section className="kp-section"><h2>Клиент и поездка</h2>
+        <div className="kp-form-grid">
+          <Field label="Для кого предложение" required><Input locationAutocomplete={false} value={recipient} maxLength={255} onChange={e => setRecipient(e.target.value)} placeholder="Имя клиента или компания" /></Field>
+          <Field label="Заказ" hint="Можно связать позже"><Button variant="secondary" iconRight="chevRight" onClick={() => setOrderPickerOpen(true)}>{selected ? `Заказ ${selected.no}` : 'Выбрать заказ'}</Button>{selected && <Button variant="ghost" size="sm" onClick={() => setOrderNo('')}>Отвязать</Button>}</Field>
+          <Field label="Маршрут / направление"><Input locationAutocomplete={false} value={route} maxLength={500} onChange={e => setRoute(e.target.value)} placeholder="Например: Москва → Стамбул" /></Field>
+          <Field label="Валюта предложения"><Select value={currency} options={CURRENCIES.map(item => ({ value: item.code, label: `${item.code} · ${item.name}` }))} onChange={e => setCurrency(e.target.value)} /></Field>
+          <UFDateField label="Начало поездки" value={start} onChange={setStart} minDate={new Date()} />
+          <UFDateField label="Окончание поездки" value={end} onChange={setEnd} minDate={start || new Date()} />
         </div>
-        {orderPickerOpen && <OrderPickerDrawer orders={orders} title="Связать КП с заказом" sub="Это необязательно — связь можно изменить позже" onPick={(order) => { setOrderNo(String(order.no)); if (source === 'order') setBase('services'); }} onClose={() => setOrderPickerOpen(false)} />}
-      </div>
-    </Drawer>
-  );
+        <Field label="Название предложения"><Input locationAutocomplete={false} value={title} maxLength={255} onChange={e => setTitle(e.target.value)} placeholder={route || 'Например: Командировка в Стамбул'} /></Field>
+      </section>
+      <section className="kp-section"><Field label="Комментарий для клиента" hint="Необязательно, попадёт в предложение"><textarea className="input" rows={3} maxLength={4000} value={note} onChange={e => setNote(e.target.value)} placeholder="Цель поездки и важные условия…" /></Field></section>
+      <p className="kp-explanation">Сейчас создаётся только черновик в CRM. В конструкторе добавьте варианты услуг и создайте ссылку для клиента. Письмо не отправляется, бронирование не запускается.</p>
+    </div>
+    {orderPickerOpen && <OrderPickerDrawer orders={orders} title="Выбрать заказ" onPick={order => { setOrderNo(String(order.no)); if (!recipient) setRecipient(order.client || ''); setOrderPickerOpen(false); }} onClose={() => setOrderPickerOpen(false)} />}
+    <ConfirmDialog open={closePrompt} title="Сохранить форму создания КП?" message="Введённые данные сохранятся в черновиках на этом устройстве. Позже нажмите «Продолжить» в блоке черновиков. Клиенту ничего не отправляется." confirmLabel="Сохранить и закрыть" confirmVariant="primary" onCancel={() => setClosePrompt(false)} onConfirm={() => { setClosePrompt(false); onClose(); }} />
+  </Drawer>;
 }
 
 
@@ -1616,13 +1424,13 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
 
   let rows = proposals.filter((p) => {
     if (fStatus && p.status !== fStatus) return false;
-    if (q && !(`${p.id} ${p.client} ${p.order}`.toLowerCase().includes(q.toLowerCase()))) return false;
+    if (q && !(`${p.id} ${p.client} ${p.order} ${p.interactive?.title || ""} ${p.interactive?.recipient || ""} ${p.interactive?.route || ""}`.toLowerCase().includes(q.toLowerCase()))) return false;
     return true;
   });
   rows = apply(rows, { id: (r) => r.id, order: (r) => r.order, created: (r) => r.created, total: (r) => Math.max(...pVariants(r).map((v) => v.total)) });
 
   const counts = (st) => proposals.filter((p) => !st || p.status === st).length;
-  const STATS = [['Всего', counts()], ['Отправлено', counts('Отправлено клиенту')], ['На согласовании', counts('На согласовании')], ['Согласовано', counts('Согласовано')]];
+  const STATS = [['Всего', counts()], ['Ссылка создана', counts('Отправлено клиенту')], ['На согласовании', counts('На согласовании')], ['Согласовано', counts('Согласовано')]];
 
   return (
     <div className="fade-in proposals-registry">
@@ -1643,7 +1451,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
             <thead><tr>
               <Th label="№ КП" col="id" sort={sort} onSort={onSort} />
               <Th label="Заказ" col="order" sort={sort} onSort={onSort} />
-              <th>Клиент</th><th>Вариантов</th>
+              <th>Клиент и поездка</th><th>Вариантов</th>
               <Th label="Сумма" col="total" sort={sort} onSort={onSort} style={{ textAlign: 'right' }} />
               <th>Действует до</th><th>Статус</th><th></th>
             </tr></thead>
@@ -1652,7 +1460,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
                 <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => setEditTarget(p)}>
                   <td className="t-strong">{p.id}</td>
                   <td>{p.order ? <span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {p.order}</span> : <span style={{ color: 'var(--muted)' }}>Без заказа</span>}</td>
-                  <td>{p.client}</td>
+                  <td><div className="kp-registry-context"><strong>{p.interactive?.recipient || p.client}</strong><span>{readableServiceTitle(p.interactive?.route || p.brief?.route || p.interactive?.title || p.purpose || "Направление не указано")}</span><small>{proposalContext(p.interactive || {}).dates}</small></div></td>
                   <td>{p.interactive ? `${p.interactive.option_count} услуг · ${p.interactive.group_count} разделов` : pVariants(p).length}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{p.interactive ? (p.interactive.total != null ? kpM(p.interactive.total, p.interactive.currency) : 'Зависит от выбора') : proposalSummary(p)}</td>
                   <td>{p.validUntil}</td>
@@ -1661,8 +1469,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
                     <ActionMenu trigger={<button className="btn btn-ghost btn-icon btn-sm"><Icon name="more" /></button>}
                       items={[
                         { icon: 'edit', label: 'Редактировать', onClick: () => setEditTarget(p) },
-                        { icon: 'eye', label: 'Предпросмотр и версии', onClick: () => setEditTarget(p) },
-                        { icon: 'send', label: 'Ссылка и согласование', onClick: () => setEditTarget(p) },
+
                         ...(p.order ? [{ icon: 'orders', label: 'Перейти в заказ', onClick: () => { const o = orderByNo(p.order, orders); if (o) onOpenOrder(o); else toast('Заказ № ' + p.order + ' не найден', 'warn'); } }] : []),
                       ]} />
                   </td>

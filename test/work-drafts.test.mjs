@@ -122,3 +122,18 @@ test('the React hook persists functional input updates and scopes them to the ac
   assert.deepEqual(history('rail')[0], [], 'different location namespaces never mix');
 
 });
+
+test('unfinished proposal creation is recoverable from the shared offers draft list', () => {
+  const storage = memory();
+  const store = createDraftStore(storage, 'tenant:operator');
+  store.write('proposal-create', 'recipient', 'Иван Петров');
+  store.write('proposal-create', 'start', '10.12.2026');
+  store.write('proposal-create', 'createdId', 'server-proposal');
+  const restored = createDraftStore(storage, 'tenant:operator');
+  const entry = draftsForRoute(restored.workspaces(), 'offers').find(row => row.scope === 'proposal-create');
+  assert.equal(entry.type, 'new-proposal');
+  assert.match(entry.title, /Иван Петров/);
+  assert.equal(restored.read('proposal-create', 'createdId'), 'server-proposal');
+  restored.clear('proposal-create');
+  assert.equal(draftsForRoute(restored.workspaces(), 'offers').length, 0);
+});

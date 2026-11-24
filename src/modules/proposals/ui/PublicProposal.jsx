@@ -1,4 +1,5 @@
 'use client';
+import { proposalContext } from '../model/presentation.js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { ProposalChoices } from './ProposalChoices.jsx';
@@ -59,13 +60,14 @@ export function PublicProposal({ token }) {
   }
   if (!quote) return <main className="kp-public"><div className="kp-public-brand">ПСЦ · Travel Hub</div><section className="kp-section"><h1>{error ? 'Не удалось открыть предложение' : 'Загружаем предложение…'}</h1>{error && <><p role="alert">{error}</p><Button onClick={() => window.location.reload()}>Повторить</Button></>}</section></main>;
   const payload = quote.payload;
+  const context = proposalContext(payload);
   const errors = selectionErrors(payload, ids, packageId);
   const expired = payload.valid_until && new Date(payload.valid_until) < new Date();
   const canApprove = quote.stage === 'awaiting_approval' && JSON.stringify([...ids].sort()) === JSON.stringify([...(quote.selection.option_ids || [])].sort()) && packageId === (quote.selection.package_id || null);
   const disabled = busy || checking || expired;
   return <main className="kp-public">
     <header className="kp-public-top"><div className="kp-public-brand">ПСЦ · Travel Hub</div><span>{quote.number} · версия {quote.revision}</span></header>
-    <header className="kp-public-heading"><div><span className="kp-kind">{quote.stage_label}</span><h1>{payload.title}</h1><p className="kp-description">{payload.intro}</p><p className="kp-muted">{payload.valid_until ? `Действует до ${kpTime(payload.valid_until)}` : 'Срок действия уточняется оператором'}</p></div><Button variant="secondary" disabled={checking || busy || expired} onClick={() => refresh()}>{checking ? 'Проверяем…' : 'Обновить цены'}</Button></header>
+    <header className="kp-public-heading"><div><span className="kp-kind">{quote.stage_label}</span><h1>{payload.title}</h1><div className="kp-public-context"><strong>{context.recipient}</strong><span>{context.route}</span><span>{context.dates}</span></div><p className="kp-description">{payload.intro}</p><p className="kp-muted">{payload.valid_until ? `Действует до ${kpTime(payload.valid_until)}` : 'Срок действия уточняется оператором'}</p></div><Button variant="secondary" disabled={checking || busy || expired} onClick={() => refresh()}>{checking ? 'Проверяем…' : 'Обновить цены'}</Button></header>
     <p className="kp-explanation">Сначала отправьте выбор оператору. После проверки цены и наличия согласуйте итоговые условия. Бронирование выполняет оператор.</p>
     {expired && <p className="kp-error" role="alert">Срок действия КП истёк. Запросите обновлённые варианты у оператора.</p>}
     {error && <p className="kp-error" role="alert">{error}</p>}{notice && <p className="kp-explanation" role="status">{notice}</p>}
