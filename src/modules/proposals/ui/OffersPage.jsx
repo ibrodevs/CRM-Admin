@@ -1112,17 +1112,30 @@ function KPCreateModal({ open, onClose, onCreated, orders = [] }) {
   const [start, setStart] = useDraftState('proposal-create', 'start', '');
   const [end, setEnd] = useDraftState('proposal-create', 'end', '');
   const [orderNo, setOrderNo] = useDraftState('proposal-create', 'orderNo', '');
+  const [orderChoice, setOrderChoice] = useDraftState('proposal-create', 'orderChoice', null);
+  const [manualRecipient, setManualRecipient] = useState(false);
   const [currency, setCurrency] = useDraftState('proposal-create', 'currency', getDefaultCurrency);
   const [note, setNote] = useDraftState('proposal-create', 'note', '');
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState({});
   const [entityPickerOpen, setEntityPickerOpen] = useState(false);
-  const [orderPickerOpen, setOrderPickerOpen] = useState(false);
   const [createdId, setCreatedId] = useDraftState('proposal-create', 'createdId', '');
   const controls = useDraftControls('proposal-create');
   const [closePrompt, setClosePrompt] = useState(false);
   const close = () => { if (busy) return; if (recipient || title || route || start || end || orderNo || note) setClosePrompt(true); else onClose(); };
-  const selected = orders.find(order => String(order.no) === String(orderNo));
+  const selected = orders.find(order => String(order.no) === String(orderNo)) || (orderChoice && String(orderChoice.no) === String(orderNo) ? orderChoice : null);
+  const unlinkOrder = () => { setOrderNo(''); setOrderChoice(null); };
+  const pickRecipient = value => {
+    setManualRecipient(false);
+    if (value.mode === 'order') {
+      setOrderNo(String(value.order.no)); setOrderChoice(value.order);
+      setRecipient(value.order.client || ''); setRecipientRef(null);
+    } else {
+      unlinkOrder(); setRecipient(value.mode === 'person' ? value.client : value.company.name);
+      setRecipientRef({ type: value.mode, id: value.id });
+    }
+    setErrors(current => ({ ...current, recipient: '' })); setEntityPickerOpen(false);
+  };
   async function submit() {
     if (busy) return;
     const invalid = {};
@@ -1154,8 +1167,15 @@ function KPCreateModal({ open, onClose, onCreated, orders = [] }) {
     <div className="kp-workspace">
       <section className="kp-section"><h2>Клиент и поездка</h2>
         <div className="kp-form-grid">
-          <Field label="Для кого предложение" required error={errors.recipient}><Button variant="secondary" size="field" iconRight="chevRight" onClick={() => setEntityPickerOpen(true)}>Выбрать клиента, юрлицо или заказ</Button><Input error={errors.recipient} aria-invalid={Boolean(errors.recipient)} locationAutocomplete={false} value={recipient} maxLength={255} onChange={e => { setRecipient(e.target.value); setRecipientRef(null); }} placeholder="Имя клиента или компания" /></Field>
-          <Field label="Заказ"><div className="kp-create-order"><Button size="field" variant="secondary" iconRight="chevRight" onClick={() => setOrderPickerOpen(true)}>{selected ? `Заказ ${selected.no}` : 'Выбрать заказ'}</Button>{selected && <Button variant="ghost" size="sm" onClick={() => setOrderNo('')}>Отвязать</Button>}</div><span className="kp-field-note">Можно связать позже</span></Field>
+          <div className="kp-recipient-field">
+            <Field label="Для кого предложение" required error={errors.recipient}>
+              <Button type="button" className="kp-recipient-button" variant="secondary" size="field" icon={selected ? 'briefcase' : recipientRef?.type === 'company' ? 'building' : 'user'} iconRight="chevRight" aria-invalid={Boolean(errors.recipient)} disabled={busy} onClick={() => setEntityPickerOpen(true)}>
+                <span className="kp-recipient-value"><span>{recipient || 'Выбрать клиента, юрлицо или заказ'}</span>{selected && <small>Заказ {selected.no}</small>}</span>
+              </Button>
+              <div className="kp-recipient-actions">{selected ? <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={unlinkOrder}>Отвязать заказ</Button> : <span className="kp-field-note">Можно создать без привязки к заказу</span>}<Button type="button" variant="ghost" size="sm" disabled={busy} aria-expanded={manualRecipient} onClick={() => setManualRecipient(value => !value)}>{manualRecipient ? 'Скрыть ручной ввод' : 'Указать получателя вручную'}</Button></div>
+              {manualRecipient && <Input aria-label="Получатель вручную" error={errors.recipient} locationAutocomplete={false} value={recipient} maxLength={255} onChange={e => { setRecipient(e.target.value); setRecipientRef(null); unlinkOrder(); setErrors(current => ({ ...current, recipient: '' })); }} placeholder="Имя клиента или название компании" />}
+            </Field>
+          </div>
           <ProposalRouteFields errors={errors} value={route} onChange={setRoute} />
           <UFDateField label="Начало поездки" value={start} onChange={setStart} minDate={new Date()} />
           <UFDateField error={errors.end} label="Окончание поездки" value={end} onChange={setEnd} minDate={start || new Date()} />
@@ -1166,8 +1186,7 @@ function KPCreateModal({ open, onClose, onCreated, orders = [] }) {
       <section className="kp-section"><Field label="Комментарий для клиента" hint="Необязательно, попадёт в предложение"><textarea className="input" rows={3} maxLength={4000} value={note} onChange={e => setNote(e.target.value)} placeholder="Цель поездки и важные условия…" /></Field></section>
       <p className="kp-explanation">Сейчас создаётся только черновик в CRM. В конструкторе добавьте варианты услуг и создайте ссылку для клиента. Письмо не отправляется, бронирование не запускается.</p>
     </div>
-    {entityPickerOpen && <UnifiedBindPicker open title="Клиент, юрлицо или заказ" onClose={() => setEntityPickerOpen(false)} onPick={value => { setRecipientRef(value.mode === 'order' ? null : { type: value.mode, id: value.id }); setRecipient(value.mode === 'order' ? value.order.client || value.label : value.mode === 'person' ? value.client : value.company.name); if (value.mode === 'order') setOrderNo(String(value.order.no)); setErrors(current => ({ ...current, recipient: '' })); setEntityPickerOpen(false); }} />}
-    {orderPickerOpen && <OrderPickerDrawer orders={orders} title="Выбрать заказ" onPick={order => { setOrderNo(String(order.no)); if (!recipient) setRecipient(order.client || ''); setOrderPickerOpen(false); }} onClose={() => setOrderPickerOpen(false)} />}
+    {entityPickerOpen && <UnifiedBindPicker open title="Клиент, юрлицо или заказ" onClose={() => setEntityPickerOpen(false)} onPick={pickRecipient} />}
     <ConfirmDialog open={closePrompt} title="Сохранить форму создания КП?" message="Введённые данные сохранятся в черновиках на этом устройстве. Позже нажмите «Продолжить» в блоке черновиков. Клиенту ничего не отправляется." confirmLabel="Сохранить и закрыть" confirmVariant="primary" onCancel={() => setClosePrompt(false)} onConfirm={() => { setClosePrompt(false); onClose(); }} />
   </Drawer>;
 }
