@@ -11,7 +11,7 @@ export function ProposalChoices({ payload, ids, packageId, onChange, disabled = 
   return <div className="kp-choices">
     {payload.mode !== 'flexible' && <section className="kp-section"><h2>Готовые комплекты</h2><div className="kp-packages">{payload.packages.map(pack => <button type="button" className={`kp-package ${packageId === pack.id ? 'is-selected' : ''}`} aria-pressed={packageId === pack.id} disabled={disabled} key={pack.id} onClick={() => onChange(pack.option_ids, pack.id)}><strong>{pack.title}</strong><span>{pack.option_ids.map(id => readableServiceTitle(options.find(row => row.id === id)?.title)).filter(Boolean).join(' · ')}</span><b>{kpMoney(chosenTotal(payload, pack.option_ids), payload.currency)}</b><span>{packageId === pack.id ? 'Выбран' : 'Выбрать комплект'}</span></button>)}</div></section>}
     {payload.mode === 'both' && <p className="kp-muted">Выберите готовый комплект или соберите поездку из вариантов ниже. Некоторые услуги связаны между собой.</p>}
-    {payload.groups.map(group => <section className="kp-section" key={group.id}>
+    {payload.groups.filter(group => group.options.length).map(group => <section className="kp-section" key={group.id}>
       <header className="kp-section-title"><h2>{group.title}</h2><span className="kp-muted">{group.required && payload.mode !== 'packages' ? 'Обязательный раздел' : 'Варианты услуг'}</span></header>
       <div className="kp-option-list">{group.options.map(option => {
         const selected = ids.includes(option.id);

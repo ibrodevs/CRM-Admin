@@ -8,6 +8,8 @@ function text(value) {
   if (!present(value)) return '';
   if (typeof value === 'object') {
     if (value.description || value.text) return String(value.description || value.text);
+    if (value.type && value.value != null) return `${value.value}${value.type}`;
+    if (value.type) return String(value.type);
     return [value.pieces != null ? `${value.pieces} ${plural(Number(value.pieces), ['место', 'места', 'мест'])}` : '', value.weight != null ? `${value.weight} ${value.unit || 'кг'}` : ''].filter(Boolean).join(' · ');
   }
   return String(value);
@@ -21,6 +23,7 @@ export function baggageLabel(value) {
     const limits = [value.pieces, value.weight].filter(present);
     if (limits.length && limits.every(limit => String(limit).trim() !== '' && Number(limit) === 0)) return 'Без багажа';
   }
+  if (/^(?:PC|KGS?)$/i.test(raw)) return 'Норма не передана';
   if (/^(?:0\s*(?:PC|KGS?)?|NO|NONE|FALSE)$/i.test(raw) || value === false) return 'Без багажа';
   if (value === true) return 'Включено';
   const pieces = /^(\d+)\s*PC$/i.exec(raw);

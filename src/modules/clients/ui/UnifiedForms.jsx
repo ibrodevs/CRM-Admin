@@ -1,3 +1,4 @@
+import { EntityPicker } from './EntityPicker.jsx';
 import { CountryField } from '../../../shared/ui/CountryField.jsx';
 import { COUNTRY_OPTIONS, countryName } from '../../../shared/lib/countries.js';
 import { useDraftState, useDraftControls } from '../../../shared/drafts/Drafts.jsx';
@@ -264,6 +265,7 @@ function UnifiedPersonFields({ value, onChange, errors = {}, departments = [], s
         <Field label="Имя" required error={errors.firstName}><Input value={p.firstName} onChange={(e) => set('firstName', e.target.value)} placeholder="Иван" /></Field>
         <Field label="Отчество"><Input value={p.middleName} onChange={(e) => set('middleName', e.target.value)} placeholder="Иванович" /></Field>
         {showLatin && <>
+          <div style={{ gridColumn: '1 / -1' }}><Button variant="secondary" size="sm" onClick={() => onChange({ ...p, latLast: p.latLast || translit(p.lastName), latFirst: p.latFirst || translit(p.firstName), latMiddle: p.latMiddle || translit(p.middleName) })}>Заполнить латиницу</Button><div className="hint">Заполним пустые поля. Проверьте написание по документу гостя.</div></div>
           <Field label="Фамилия латиницей" required error={errors.latLast}><Input value={p.latLast || ''} onChange={(e) => set('latLast', e.target.value)} placeholder="IVANOV" /></Field>
           <Field label="Имя латиницей" required error={errors.latFirst}><Input value={p.latFirst || ''} onChange={(e) => set('latFirst', e.target.value)} placeholder="IVAN" /></Field>
         </>}
@@ -579,85 +581,8 @@ function ufBindLabel(t) {
   return 'Новый заказ';
 }
 
-function UnifiedBindPicker({ open, title = 'Куда привязать', sub, modes = ['new', 'order', 'company', 'person'], orderOptions, clientOptions, companyOptions, onClose, onPick }) {
-  const [tab, setTab] = useState(modes[0] || 'new');
-  const [q, setQ] = useState('');
-  useEffect(() => { if (open) { setTab(modes[0] || 'new'); setQ(''); } }, [open]);
-  if (!open) return null;
-  const ql = q.toLowerCase();
-  const orders = Array.isArray(orderOptions)
-    ? orderOptions.filter((order) => `${order.no} ${order.client || ''}`.toLowerCase().includes(ql))
-    : ufOrderPickRows(q);
-  const clients = (Array.isArray(clientOptions) ? clientOptions.map((client) => typeof client === 'string' ? client : client.name) : (typeof CLIENTS !== 'undefined' ? CLIENTS : []))
-    .filter((c) => c.toLowerCase().includes(ql));
-  const companies = (Array.isArray(companyOptions) ? companyOptions : [])
-    .filter((company) => `${company.name || ''} ${company.shortName || ''} ${company.fullName || ''} ${company.inn || company.tax_id || ''}`.toLowerCase().includes(ql));
-  return (
-    <Drawer open={open} onClose={onClose} title={title} sub={sub}
-      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Отмена</Button>}>
-      {modes.length > 1 && (
-        <div className="seg-toggle" style={{ marginBottom: 14 }}>
-          {modes.map((m) => (
-            <button key={m} type="button" className={'seg-btn' + (tab === m ? ' active' : '')} onClick={() => { setTab(m); setQ(''); }}>{UF_BIND_MODE_LABEL[m]}</button>
-          ))}
-        </div>
-      )}
-
-      {tab === 'new' && (
-        <div className="card card-pad" style={{ textAlign: 'center' }}>
-          <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 44, height: 44, borderRadius: 12, margin: '0 auto 10px' }}><Icon name="plus" style={{ width: 20, height: 20 }} /></span>
-          <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Создать новый заказ</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Будет создан новый заказ, к которому привяжется подобранное.</div>
-          <Button icon="check" style={{ width: '100%' }} onClick={() => onPick({ mode: 'new', label: 'Новый заказ' })}>Выбрать: новый заказ</Button>
-        </div>
-      )}
-
-      {tab === 'order' && (
-        <>
-          <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {orders.map((o) => (
-              <UfOrderRow key={o.id || o.no} order={o} onClick={() => onPick({ mode: 'order', order: o, label: 'Заказ № ' + o.no })} />
-            ))}
-            {!orders.length && <EmptyState icon="briefcase" title="Заказы не найдены" />}
-          </div>
-        </>
-      )}
-
-      {tab === 'person' && (
-        <>
-          <SearchBox value={q} onChange={setQ} placeholder="Поиск клиента" style={{ width: '100%', marginBottom: 12 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {clients.map((c) => (
-              <UfPersonRow key={c} name={c} onClick={() => onPick({ mode: 'person', client: c, label: c })} />
-            ))}
-            {!clients.length && <EmptyState icon="user" title="Клиенты не найдены" />}
-          </div>
-        </>
-      )}
-
-      {tab === 'company' && (
-        <>
-          <SearchBox value={q} onChange={setQ} placeholder="Поиск по названию или ИНН" style={{ width: '100%', marginBottom: 12 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {companies.map((company) => {
-              const name = company.name || company.shortName || company.fullName || company.legal_name || 'Юридическое лицо';
-              const inn = company.inn || company.tax_id || '—';
-              return (
-                <button key={company.id || name} type="button" style={UF_PICK_ROW_STYLE}
-                  onClick={() => onPick({ mode: 'company', company, label: name })}>
-                  <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34, borderRadius: 10 }}><Icon name="building" style={{ width: 17, height: 17 }} /></span>
-                  <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}><b style={{ display: 'block', color: 'var(--ink)' }}>{name}</b><small style={{ color: 'var(--muted)' }}>ИНН {inn}</small></span>
-                  <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-                </button>
-              );
-            })}
-            {!companies.length && <EmptyState icon="building" title="Юридические лица не найдены" />}
-          </div>
-        </>
-      )}
-    </Drawer>
-  );
+function UnifiedBindPicker(props) {
+  return <EntityPicker {...props} />;
 }
 
 function UnifiedBindField({ value, onChange, modes, title, sub, style, orderOptions, clientOptions, companyOptions }) {
@@ -670,7 +595,7 @@ function UnifiedBindField({ value, onChange, modes, title, sub, style, orderOpti
         style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', ...(style || {}) }}>
         <Icon name={icon} style={{ width: 16, height: 16, color: 'var(--muted-2)', flexShrink: 0 }} />
         <span style={{ flex: 1, color: 'var(--ink)' }}>{ufBindLabel(t)}</span>
-        <Icon name="chevDown" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
+        <Icon name="chevRight" style={{ width: 16, height: 16, color: 'var(--muted-2)' }} />
       </button>
       <UnifiedBindPicker open={open} modes={modes} title={title || 'Заказ для привязки'} sub={sub} orderOptions={orderOptions} clientOptions={clientOptions} companyOptions={companyOptions}
         onClose={() => setOpen(false)} onPick={(next) => { onChange(next); setOpen(false); }} />
@@ -680,7 +605,7 @@ function UnifiedBindField({ value, onChange, modes, title, sub, style, orderOpti
 
 function translit(s) {
   const map = { а: 'A', б: 'B', в: 'V', г: 'G', д: 'D', е: 'E', ё: 'E', ж: 'ZH', з: 'Z', и: 'I', й: 'I', к: 'K', л: 'L', м: 'M', н: 'N', о: 'O', п: 'P', р: 'R', с: 'S', т: 'T', у: 'U', ф: 'F', х: 'KH', ц: 'TS', ч: 'CH', ш: 'SH', щ: 'SCH', ъ: '', ы: 'Y', ь: '', э: 'E', ю: 'YU', я: 'YA' };
-  return String(s || '').toLowerCase().split('').map((c) => map[c] != null ? map[c] : (/[a-z0-9]/.test(c) ? c : '')).join('').toUpperCase();
+  return String(s || '').toLowerCase().split('').map((c) => map[c] != null ? map[c] : (/[a-z0-9 '-]/.test(c) ? c : '')).join('').toUpperCase();
 }
 
 Object.assign(window, {

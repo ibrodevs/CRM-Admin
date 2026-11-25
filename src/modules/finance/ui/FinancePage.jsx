@@ -1,3 +1,4 @@
+import { UnifiedBindPicker } from '../../clients/index.js';
 import { PageActionProvider, PageActions } from '../../../shared/ui/PageActions.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { Statistics, Statistic } from '../../../shared/ui/Statistics.jsx';
@@ -603,9 +604,7 @@ function NewPaymentDrawer({ open, onClose, onCreate, clientRows = [], supplierRo
         sub={dir === 'in' ? 'Лицо или компания из backend' : 'Поставщик из backend'}
         placeholder="Поиск контрагента" rows={partyRows}
         onClose={() => setPickParty(false)} onPick={(value) => { setPartyKey(value); setPickParty(false); }} />
-      <FinPickerDrawer open={pickOrder} value={orderId} title="Выбор заказа" sub="Заказы из backend"
-        placeholder="Поиск по номеру заказа" rows={orderRows}
-        onClose={() => setPickOrder(false)} onPick={(value) => { setOrderId(value); setPickOrder(false); }} />
+      <UnifiedBindPicker open={pickOrder} modes={['order']} title="Выбор заказа" orderOptions={orderRows.map(row => ({ id: row.value, no: row.name.replace(/^№\s*/, ''), client: row.sub }))} onClose={() => setPickOrder(false)} onPick={value => { setOrderId(value.order.id); setPickOrder(false); }} />
     </Drawer>
   );
 }

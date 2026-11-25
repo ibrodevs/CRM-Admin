@@ -198,8 +198,8 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
   const [guestsLoading, setGuestsLoading] = useState(false);
   const [guestsError, setGuestsError] = useState('');
   const [addedGuests, setAddedGuests] = useDraftState(`HotelPicker/${orderId || 'free'}`, "addedGuests", []);
-  const [createGuestOpen, setCreateGuestOpen] = useDraftState(`HotelPicker/${orderId || 'free'}`, "createGuestOpen", false);
-  const [editGuestPersonId, setEditGuestPersonId] = useDraftState(`HotelPicker/${orderId || 'free'}`, "editGuestPersonId", null);
+  const [createGuestOpen, setCreateGuestOpen] = useState(false);
+  const [editGuestPersonId, setEditGuestPersonId] = useState(null);
   const [addingOffer, setAddingOffer] = useState(false);
   const [guestBookingError, setGuestBookingError] = useState('');
   const hasOrderGuests = !!orderId || (Array.isArray(participants) && participants.length > 0);
@@ -685,7 +685,7 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
           onClose={closeAll} onBack={() => setPanel('room')} onAdd={finalizeSingle} />
       )}
 
-      {createGuestOpen && <HotelGuestCreateDrawer personId={editGuestPersonId} documentRequired={activeHotel?.provider_adapter !== 'aanda'} checkout={hotelDateOnly(checkout)} orderId={orderId} onClose={() => setCreateGuestOpen(false)} onCreated={acceptCreatedGuest} />}
+      {createGuestOpen && <HotelGuestCreateDrawer key={editGuestPersonId || "new"} personId={editGuestPersonId} documentRequired={activeHotel?.provider_adapter !== 'aanda'} checkout={hotelDateOnly(checkout)} orderId={orderId} onClose={() => setCreateGuestOpen(false)} onCreated={acceptCreatedGuest} />}
 
       {panel === 'group' && activeHotel && (
         <GroupAccommodationPanel hotel={activeHotel} pax={PAX} nights={nights} checkin={checkin} checkout={checkout}

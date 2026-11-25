@@ -39,3 +39,10 @@ test('structured zero baggage and missing provider markers are not positive allo
   assert.equal(baggageLabel({pieces:1,weight:23}), '1 место · 23 кг');
   assert.equal(baggageLabel('21PC'), '21 место');
 });
+
+test('provider quantity and unit remain together without inventing a weight', () => {
+  assert.equal(baggageLabel({type:'PC',value:1}), '1 место');
+  assert.equal(baggageLabel({type:'KG',value:23}), '23 кг');
+  assert.equal(baggageLabel({type:'PC',value:0}), 'Без багажа');
+  assert.equal(baggageLabel('PC'), 'Норма не передана');
+});

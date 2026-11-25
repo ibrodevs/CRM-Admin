@@ -1,3 +1,4 @@
+import { UnifiedBindPicker } from '../../clients/index.js';
 import { interactiveApi } from '../../proposals/api.js';
 import { proposalDraftEntries } from '../../../shared/drafts/workspaces.js';
 import { freeBookingFormScope } from '../../../shared/drafts/workspaces.js';
@@ -85,10 +86,13 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
     }
   };
 
-  const createNewOrder = async (clientName, requestType) => {
-    const client = clients.find((item) => item.name === clientName);
-    const company = companies.find((item) => item.name === clientName);
+  const createNewOrder = async (selection, requestType) => {
+    if (busy) return;
+    const clientName = selection.label;
+    const client = selection.mode === 'person' ? { id: selection.id } : null;
+    const company = selection.mode === 'company' ? { id: selection.id } : null;
     if (!client && !company) { toast('Выберите клиента или компанию из backend-списка', 'err'); return; }
+    setBusy(true);
     try {
       const created = await ordersApi.create({
         request_type: requestType === 'Корпоративная' ? 'corporate' : 'individual',
@@ -107,7 +111,7 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
     } catch (error) {
       toast(error.message || 'Не удалось создать заказ', 'err');
       return;
-    }
+    } finally { setBusy(false); }
   };
 
   const orderPickRows = (query) => ufOrderPickRows(query, orders);
@@ -158,103 +162,19 @@ function FreeBookingFinalize({ draft, onClose, onDone, onOpenOrder, onNavigate, 
   };
 
 
-  if (step === 'order') {
-    const rows = orderPickRows(q);
-    return (
-      <Drawer open onClose={onClose} title="Привязать к заказу"
-        footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
-        <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {rows.map((o) => (
-            <UfOrderRow key={o.id} order={o} onClick={async () => {
-              try {
-                await attachDraftToOrder(o.id);
-                finish('Услуги (' + draft.length + ') добавлены в заказ № ' + o.no);
-                onOpenOrder?.(o, 'services');
-              } catch (error) {
-                toast(error.message || 'Не удалось привязать услуги к заказу', 'err');
-              }
-            }} />
-          ))}
-          {!rows.length && <EmptyState icon="briefcase" title="Заказы не найдены" />}
-        </div>
-      </Drawer>
-    );
+  if (step === 'order' || step === 'chat') {
+    return <UnifiedBindPicker open title={step === 'chat' ? 'Отправить в чат по заказу' : 'Привязать к заказу'} modes={['order']} orderOptions={orders} onClose={() => setStep('menu')} onPick={async ({ order }) => {
+      if (busy) return;
+      if (step === 'chat') return sendDraftToChat(order);
+      setBusy(true);
+      try { await attachDraftToOrder(order.id); finish('Услуги (' + draft.length + ') добавлены в заказ № ' + order.no); onOpenOrder?.(order, 'services'); }
+      catch (error) { toast(error.message || 'Не удалось привязать услуги к заказу', 'err'); }
+      finally { setBusy(false); }
+    }} />;
   }
-
-
-  if (step === 'chat') {
-    const rows = orderPickRows(q);
-    return (
-      <Drawer open onClose={onClose} title="Отправить в чат по заказу"
-        footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
-        <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>
-          Подборка ({draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])}) уйдёт в чат выбранного заказа без формирования КП.
-        </div>
-        <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {rows.map((o) => (
-            <UfOrderRow key={o.id} order={o} icon="chat" tone="var(--green)" onClick={() => !busy && sendDraftToChat(o)} />
-          ))}
-          {!rows.length && <EmptyState icon="chat" title="Заказы не найдены" />}
-        </div>
-      </Drawer>
-    );
+  if (step === 'person' || step === 'newOrder') {
+    return <UnifiedBindPicker open title="Клиент нового заказа" modes={step === 'person' ? ['person'] : ['person', 'company']} clientOptions={clients} companyOptions={companies} onClose={() => setStep('menu')} onPick={selection => createNewOrder(selection, selection.mode === 'company' ? 'Корпоративная' : 'Индивидуальная')} />;
   }
-
-
-  if (step === 'person') {
-    const list = clients.filter((client) => client.name.toLowerCase().includes(q.toLowerCase()));
-    return (
-      <Drawer open onClose={onClose} title="Привязать к физ. лицу"
-        footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
-        <SearchBox value={q} onChange={setQ} placeholder="Поиск клиента" style={{ width: '100%', marginBottom: 12 }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {list.map((client) => (
-            <UfPersonRow key={client.id} name={client.name} onClick={() => createNewOrder(client.name, 'Индивидуальная')} />
-          ))}
-          {!list.length && <EmptyState icon="user" title="Клиенты не найдены" />}
-        </div>
-      </Drawer>
-    );
-  }
-
-
-  if (step === 'newOrder') {
-    const legal = entity === 'legal';
-    const list = (legal
-      ? companies.map((c) => c.name)
-      : clients.map((c) => c.name))
-      .filter((n) => n.toLowerCase().includes(q.toLowerCase()));
-    return (
-      <Drawer open onClose={onClose} title="Создать новый заказ"
-        footer={<Button variant="secondary" style={{ width: '100%' }} onClick={() => setStep('menu')}>Назад</Button>}>
-        <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>
-          {draft.length} {plural(draft.length, ['услуга', 'услуги', 'услуг'])} будут перенесены в новый заказ на выбранное лицо.
-        </div>
-        <div className="seg-toggle" style={{ marginBottom: 12 }}>
-          <button type="button" className={'seg-btn' + (legal ? ' active' : '')} onClick={() => { setEntity('legal'); setQ(''); }}>Юридическое лицо</button>
-          <button type="button" className={'seg-btn' + (!legal ? ' active' : '')} onClick={() => { setEntity('person'); setQ(''); }}>Физическое лицо</button>
-        </div>
-        <SearchBox value={q} onChange={setQ} placeholder={legal ? 'Поиск компании' : 'Поиск клиента'} style={{ width: '100%', marginBottom: 12 }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {list.map((name) => (
-            <button key={name} type="button" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
-              onClick={() => createNewOrder(name, legal ? 'Корпоративная' : 'Индивидуальная')}>
-              {legal
-                ? <span className="oc-svc-ic" style={{ background: '#2566ff', width: 34, height: 34 }}><Icon name="building" style={{ width: 16, height: 16 }} /></span>
-                : <Avatar name={name} size={34} />}
-              <div style={{ flex: 1, minWidth: 0, fontWeight: 600, color: 'var(--ink)' }}>{name}</div>
-              <span style={{ fontSize: 12, color: 'var(--blue)', fontWeight: 600, whiteSpace: 'nowrap' }}>Создать заказ</span>
-              <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-            </button>
-          ))}
-          {!list.length && <EmptyState icon={legal ? 'building' : 'user'} title={legal ? 'Компании не найдены' : 'Клиенты не найдены'} />}
-        </div>
-      </Drawer>
-    );
-  }
-
 
   if (step === 'kp') {
     return (

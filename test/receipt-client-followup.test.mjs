@@ -28,7 +28,7 @@ test('express review marks every ready blank and leaves incomplete blanks for ma
 
 test('binding picker supports legal entities end to end', () => {
   assert.match(bindings, /company: 'Юр\. лицо'/);
-  assert.match(bindings, /tab === 'company'/);
+  assert.match(bindings, /return <EntityPicker/);
   assert.match(editor, /modes=\{\['order', 'company', 'person'\]\}/);
   assert.match(page, /modes=\{\['new', 'order', 'company', 'person'\]\}/);
   assert.match(page, /company: isCompany \? \(finalBindTarget\.company\?\.id \|\| null\) : null/);

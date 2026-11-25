@@ -22,7 +22,7 @@ export function flightFareConditions(source = {}) {
         if (allowed !== undefined) { v = allowed ? field.yes : field.no; tone = allowed ? 'green' : 'red'; }
       } else {
         const label = candidates.map(baggageLabel).find(Boolean);
-        if (label) { v = label === 'Без багажа' ? field.absent : label; tone = label === 'Без багажа' ? 'red' : 'green'; }
+        if (label) { v = label === 'Без багажа' ? field.absent : label; tone = label === 'Без багажа' ? 'red' : label === 'Норма не передана' ? 'unknown' : 'green'; }
       }
       return { v, tone, route: [segment.origin, segment.destination].filter(Boolean).join(' → ') };
     });

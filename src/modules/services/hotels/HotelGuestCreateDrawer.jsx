@@ -60,7 +60,7 @@ export function HotelGuestCreateDrawer({ orderId, onClose, onCreated, documentRe
     } catch (err) { setError(err.message || 'Не удалось загрузить данные человека'); }
     finally { busy.current = false; setSaving(false); }
   };
-  useEffect(() => { if (personId && !draft.has('form')) reuse({ id: personId }, true); }, [personId]);
+  useEffect(() => { if (personId && (!draft.has('form') || (!form.lastName && !form.firstName))) reuse({ id: personId }, true); }, [personId]);
   return <Drawer open title={editPersonId ? 'Данные гостя' : 'Новый гость'} sub="Единая карточка человека в CRM" width="min(640px,96vw)" onClose={saving ? undefined : onClose}
     footer={<><Button variant="secondary" disabled={saving} onClick={onClose}>Отмена</Button><div style={{ flex: 1 }} /><Button icon="check" disabled={saving} onClick={() => save()}>{saving ? 'Сохранение…' : savedPerson ? 'Повторить добавление' : editPersonId ? 'Сохранить и выбрать' : 'Создать и выбрать'}</Button></>}>
     {error && <div className="hp-placement-alert" role="alert">{error}</div>}

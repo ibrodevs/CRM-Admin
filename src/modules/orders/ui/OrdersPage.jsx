@@ -1,3 +1,4 @@
+import { UnifiedBindPicker } from '../../clients/index.js';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
 import { useDraftState, useDraftControls, DraftScope } from '../../../shared/drafts/Drafts.jsx';
 import { FloatingPanel, containsFloatingTarget } from '../../../shared/ui/FloatingPanel.jsx';
@@ -346,6 +347,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
   const [company, setCompany] = useDraftState(scope, "company", firstCompany);
   const [companyQuery, setCompanyQuery] = useDraftState(scope, "companyQuery", '');
   const [companyOpen, setCompanyOpen] = useState(false);
+  const [entityPickerOpen, setEntityPickerOpen] = useState(false);
   const [employees, setEmployees] = useDraftState(scope, "employees", []);
   const [creating, setCreating] = useState(false);
 
@@ -514,20 +516,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
 
             {clientType === 'person' ? (
               <OceSec n={2} title="Физическое лицо">
-                <div ref={clientSearchRef} style={{ position: 'relative', marginBottom: 12 }}>
-                  <SearchBox value={clientQuery} onChange={setClientQuery} placeholder="Поиск по ФИО, телефону или документу" />
-                  {clientMatches.length > 0 && (
-                    <FloatingPanel anchorRef={clientSearchRef} onClose={() => setClientQuery('')} className="dropdown scroll" maxHeight={240} style={{ padding: 6 }}>
-                      {clientMatches.map((c) => (
-                        <div key={c.id} className="dropdown-item" onClick={() => { setSelClients((l) => [...l, c]); setClientQuery(''); }}>
-                          <Avatar name={c.name} size={30} />
-                          <span style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{c.name}</div>
-                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.phone} · {c.doc}</div></span>
-                        </div>
-                      ))}
-                    </FloatingPanel>
-                  )}
-                </div>
+                <Button variant="secondary" size="field" iconRight="chevRight" onClick={() => setEntityPickerOpen(true)}>Выбрать клиента или юридическое лицо</Button>
                 {selClients.map((c) => (
                   <div key={c.id} className="oce-client found">
                     <Icon name="checkCircle" style={{ width: 20, height: 20, color: 'var(--green)', flex: '0 0 20px' }} />
@@ -545,34 +534,7 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
               </OceSec>
             ) : (
               <OceSec n={2} title="Компания">
-                <Field label="Организация">
-                  <div style={{ position: 'relative' }} ref={companyRef}>
-                    <Input leadIcon="search" value={companyOpen ? companyQuery : (company?.name || '')}
-                      onFocus={() => { setCompanyOpen(true); setCompanyQuery(''); }}
-                      onChange={(e) => { setCompanyQuery(e.target.value); setCompanyOpen(true); }}
-                      placeholder="Поиск по названию или ИНН" />
-                    {companyOpen && (() => {
-                      const cq = companyQuery.trim().toLowerCase();
-                      const matches = availableCompanies.filter((c) => !cq || c.name.toLowerCase().includes(cq) || c.inn.includes(cq));
-                      return (
-                        <FloatingPanel anchorRef={companyRef} onClose={() => setCompanyOpen(false)} className="dropdown scroll" maxHeight={260} style={{ padding: 6 }}>
-                          {matches.map((c) => (
-                            <div key={c.id} className="dropdown-item" style={{ gap: 10 }}
-                              onClick={() => { setCompany(c); setCompanyQuery(''); setCompanyOpen(false); setEmployees([]); }}>
-                              <span className="oce-svc-ic" style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 32px' }}><Icon name="building" style={{ width: 16, height: 16 }} /></span>
-                              <span style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 600 }}>{c.name}</div>
-                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>ИНН {c.inn} · {c.dir}</div>
-                              </span>
-                              {company?.id === c.id && <Icon name="check" style={{ width: 16, height: 16, color: 'var(--blue)' }} />}
-                            </div>
-                          ))}
-                          {!matches.length && <div style={{ padding: 12, color: 'var(--muted)', fontSize: 14 }}>Ничего не найдено</div>}
-                        </FloatingPanel>
-                      );
-                    })()}
-                  </div>
-                </Field>
+                <Field label="Организация"><Button variant="secondary" size="field" iconRight="chevRight" onClick={() => setEntityPickerOpen(true)}>{company?.name || 'Выбрать клиента или юридическое лицо'}</Button></Field>
                 <div className="oce-client" style={{ marginTop: 10 }}>
                   <span className="oce-svc-ic" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--blue-soft)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 36px' }}><Icon name="building" style={{ width: 18, height: 18 }} /></span>
                   <div style={{ flex: 1, minWidth: 0 }}><div className="nm">{company?.name || 'Организация не выбрана'}</div><div className="mt">ИНН {company?.inn || '—'} · {company?.dir || '—'}</div></div>
@@ -672,6 +634,11 @@ function OrderCreateModal({ open, onClose, onCreated, initialGroup = false, init
       </div>
 
 
+      {entityPickerOpen && <UnifiedBindPicker open modes={['person', 'company']} initialMode={clientType === 'org' ? 'company' : 'person'} clientOptions={availableClients} companyOptions={availableCompanies} onClose={() => setEntityPickerOpen(false)} onPick={value => {
+        if (value.mode === 'person') { const person = availableClients.find(row => String(row.id) === String(value.id)); if (person) { setClientType('person'); setSelClients(current => current.some(row => row.id === person.id) ? current : [...current, person]); } }
+        else { const picked = availableCompanies.find(row => String(row.id) === String(value.id)); if (picked) { setClientType('org'); setCompany(picked); setEmployees([]); } }
+        setEntityPickerOpen(false);
+      }} />}
       {cityPick && <CityPickPanel value={pts[cityPick.idx]}
         onClose={() => setCityPick(null)}
         onPick={(code, meta) => {

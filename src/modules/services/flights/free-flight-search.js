@@ -94,6 +94,10 @@ export function freeFlightDraft(offer, params) {
   return {
     ...offer, _backendOfferId: offer._backendOfferId || offer.id,
     title: (offer.itinerary?.segments || []).map((s) => `${s.origin} → ${s.destination}`).join(' · '),
+    sub: [
+      ...(offer.itinerary?.segments || []).map(s => `${s.airline || ''} ${s.flight_number || ''} · ${s.departure || ''} → ${s.arrival || ''}`.trim()),
+      ...flightFareConditions(offer.backendOffer || offer).map(rule => `${rule.k}: ${rule.v}${rule.segments ? ' · ' + rule.segments.map(segment => `${segment.route}: ${segment.v}`).join('; ') : ''}`),
+    ].join(' · '),
     cost: Number(offer.backendOffer?.price?.amount ?? offer.fare), currency: offer.currency,
     searchCriteria: freeFlightCriteria(params), selectedOffer: offer.backendOffer || offer,
   };

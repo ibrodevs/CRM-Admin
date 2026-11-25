@@ -2296,7 +2296,7 @@ function ReceiptOrderCreateDrawer({ open, plan, clients = [], companies = [], on
         onClose={() => setPickerOpen(false)}
         onPick={(target) => {
           if (target.mode === 'person') {
-            const found = clients.find((c) => c.name === target.client || String(c.id) === String(target.client?.id || target.id));
+            const found = clients.find((c) => String(c.person_detail?.id || c.person || c.id) === String(target.id || target.client?.id) || (!target.id && c.name === target.client));
             setExistingClientId(found ? String(found.id) : (target.client?.id ? String(target.client.id) : target.client || ''));
           } else if (target.mode === 'company') {
             setCompanyId(String(target.company?.id || target.id || ''));

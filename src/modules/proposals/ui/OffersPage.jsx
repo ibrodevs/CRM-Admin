@@ -1,3 +1,4 @@
+import { UnifiedBindPicker } from '../../clients/index.js';
 import { DraftCloseDialog } from '../../../shared/ui/DraftCloseDialog.jsx';
 import { DraftWorkspaceList, DraftScope, useDraftState, useDraftControls, useDraftStatus } from '../../../shared/drafts/Drafts.jsx';
 import { proposalDraftEntries } from '../../../shared/drafts/workspaces.js';
@@ -348,36 +349,8 @@ function orderByNo(no, orders = []) {
   return source.find((o) => String(o.no) === String(no)) || null;
 }
 
-function OrderPickerDrawer({ onPick, onClose, orders = [], title = 'Выбор заказа', sub = 'Заказы по дате оформления — новые сверху' }) {
-  const [q, setQ] = useState('');
-  const seen = {};
-  // Заказы приходят с backend; демо-массив остаётся запасным для демо-режима.
-  const rows = (orders.length ? orders : (typeof ORDERS !== 'undefined' ? ORDERS : []))
-    .filter((o) => (seen[o.no] ? false : (seen[o.no] = true)))
-    .filter((o) => `${o.no} ${o.client}`.toLowerCase().includes(q.toLowerCase()))
-    .slice().sort((a, b) => (b.createdOn ? b.createdOn.getTime() : 0) - (a.createdOn ? a.createdOn.getTime() : 0));
-  return (
-    <Drawer open onClose={onClose} title={title} sub={sub} width="min(560px,96vw)"
-      footer={<Button variant="secondary" style={{ width: '100%' }} onClick={onClose}>Закрыть</Button>}>
-      <SearchBox value={q} onChange={setQ} placeholder="Поиск: № заказа или клиент" style={{ width: '100%', marginBottom: 12 }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {rows.map((o) => (
-          <button key={o.no} type="button" style={{ cursor: 'pointer', width: '100%', textAlign: 'left', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--ink)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12 }}
-            onClick={() => { onPick(o); onClose(); }}>
-            <span className="oc-svc-ic" style={{ background: 'var(--blue)', width: 34, height: 34 }}><Icon name="briefcase" style={{ width: 16, height: 16 }} /></span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, color: 'var(--ink)' }}>Заказ № {o.no}</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.client} · {o.requestType}</div>
-            </div>
-            {o.status && <Pill tone={(typeof ORDER_STATUS !== 'undefined' && ORDER_STATUS[o.status]) || 'gray'}>{o.status}</Pill>}
-            <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}><Icon name="calendar" style={{ width: 13, height: 13 }} />{orderDateLabel(o)}</div>
-            <Icon name="chevRight" style={{ width: 18, height: 18, color: 'var(--muted-2)' }} />
-          </button>
-        ))}
-        {!rows.length && <EmptyState icon="briefcase" title="Заказы не найдены" />}
-      </div>
-    </Drawer>
-  );
+function OrderPickerDrawer({ onPick, onClose, orders, title = 'Выбор заказа', sub }) {
+  return <UnifiedBindPicker open modes={['order']} orderOptions={orders?.length ? orders : undefined} title={title} sub={sub} onClose={onClose} onPick={selection => { onPick(selection.order); onClose(); }} />;
 }
 
 
@@ -386,7 +359,7 @@ function KpServicePicker({ scopeId = 'standalone', ...props }) {
   return <DraftScope name={`kp-service-picker/${scopeId}`}><KpServicePickerContent {...props} scopeId={scopeId} /></DraftScope>;
 }
 
-function KpServicePickerContent({ participants = [], currency = getDefaultCurrency(), scopeId, onAdd, onClose, onSaveDraft, onDiscardSelection }) {
+function KpServicePickerContent({ participants = [], currency = getDefaultCurrency(), scopeId, items = [], onRemove, onEdit, onAdd, onClose, onSaveDraft, onDiscardSelection }) {
   const toast = useToast();
   const [kind, setKind] = useDraftState('picker', 'kind', 'Авиа');
   const defaultParams = { trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, currency, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...(typeof PAX_DEFAULT_OPTIONS !== 'undefined' ? PAX_DEFAULT_OPTIONS : {}) };
@@ -425,9 +398,10 @@ function KpServicePickerContent({ participants = [], currency = getDefaultCurren
   return (
     <StackPanel closeOnBackdrop className="free-booking free-booking-workspace" title="Подбор услуг для КП" width="min(1320px,96vw)" onClose={requestClose}
       footer={<>
-        <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>Добавлено в КП: <b style={{ color: 'var(--ink)' }}>{added}</b></div>
+        <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>Всего в КП: <b style={{ color: 'var(--ink)' }}>{items.length}</b></div>
         <Button icon="check" onClick={requestClose}>Готово</Button>
       </>}>
+      {items.length > 0 && <details className="kp-composition" open><summary>Состав КП · {items.length} {items.length === 1 ? 'услуга' : items.length < 5 ? 'услуги' : 'услуг'}</summary><div>{items.map(item => <div className="kp-composition-row" key={item.id}><span><strong>{readableServiceTitle(item.title)}</strong><small>{item.description || item.kind}</small></span><b>{kpM(Number(item.price), currency)}</b>{onEdit && <Button variant="secondary" size="sm" onClick={() => onEdit(item.id)}>Изменить</Button>}{onRemove && <Button variant="ghost" size="sm" onClick={() => onRemove(item.id)}>Убрать</Button>}</div>)}</div></details>}
       <p className="kp-picker-hint">Выберите услуги через общую форму поиска. Они добавятся в черновик КП; бронирование не запускается.</p>
 
         <FreeBookingPanel selectionMode="proposal" kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
@@ -1131,6 +1105,7 @@ function kpDefaultValidDate() {
 }
 function KPCreateModal({ open, onClose, onCreated, orders = [] }) {
   const toast = useToast();
+  const [recipientRef, setRecipientRef] = useDraftState('proposal-create', 'recipientRef', null);
   const [recipient, setRecipient] = useDraftState('proposal-create', 'recipient', '');
   const [title, setTitle] = useDraftState('proposal-create', 'title', '');
   const [route, setRoute] = useDraftState('proposal-create', 'route', '');
@@ -1140,6 +1115,8 @@ function KPCreateModal({ open, onClose, onCreated, orders = [] }) {
   const [currency, setCurrency] = useDraftState('proposal-create', 'currency', getDefaultCurrency);
   const [note, setNote] = useDraftState('proposal-create', 'note', '');
   const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [entityPickerOpen, setEntityPickerOpen] = useState(false);
   const [orderPickerOpen, setOrderPickerOpen] = useState(false);
   const [createdId, setCreatedId] = useDraftState('proposal-create', 'createdId', '');
   const controls = useDraftControls('proposal-create');
@@ -1148,38 +1125,48 @@ function KPCreateModal({ open, onClose, onCreated, orders = [] }) {
   const selected = orders.find(order => String(order.no) === String(orderNo));
   async function submit() {
     if (busy) return;
-    if (!recipient.trim() && !selected?.client) { toast('Укажите, для кого готовите предложение', 'warn'); return; }
-    if (route && (!splitProposalRoute(route).from.trim() || !splitProposalRoute(route).to.trim())) { toast('Укажите оба города: откуда и куда', 'warn'); return; }
-    if (end && (!start || ufDateIso(end) < ufDateIso(start))) { toast('Проверьте период поездки', 'warn'); return; }
+    const invalid = {};
+    if (!recipient.trim() && !selected?.client) invalid.recipient = 'Выберите клиента или укажите получателя';
+    if (!title.trim()) invalid.title = 'Укажите название предложения';
+    const points = splitProposalRoute(route);
+    if (route && !points.from.trim()) invalid.from = 'Укажите город отправления';
+    if (route && !points.to.trim()) invalid.to = 'Укажите город назначения';
+    if (end && (!start || ufDateIso(end) < ufDateIso(start))) invalid.end = 'Окончание должно быть не раньше начала поездки';
+    setErrors(invalid);
+    if (Object.keys(invalid).length) {
+      requestAnimationFrame(() => document.querySelector('.kp-create-drawer [aria-invalid="true"]')?.focus());
+      return;
+    }
     setBusy(true);
     try {
       // Retain the created ID if the second request fails, so Retry cannot duplicate a proposal.
       const created = createdId ? await proposalsApi.detail(createdId) : await proposalsApi.create({ order: selected?.id || null, currency, recipient: (recipient || selected?.client || '').trim(), purpose: title.trim() || route.trim() || 'Предложение поездки', source: selected ? 'order' : 'manual', source_text: note.trim(), variants: [] });
       setCreatedId(created.id);
       const workspace = await interactiveApi.get(created.id);
-      await interactiveApi.save(created.id, workspace.version, { ...workspace.draft, title: title.trim() || route.trim() || 'Предложение поездки', recipient: (recipient || selected?.client || '').trim(), route: route.trim(), travel_start: ufDateIso(start), travel_end: ufDateIso(end), intro: note.trim(), currency });
+      await interactiveApi.save(created.id, workspace.version, { ...workspace.draft, title: title.trim() || route.trim() || 'Предложение поездки', recipient: (recipient || selected?.client || '').trim(), route: route.trim(), travel_start: ufDateIso(start), travel_end: ufDateIso(end), intro: note.trim(), currency, recipient_ref: recipientRef });
       onCreated?.(toLegacyProposal(await proposalsApi.detail(created.id), selected ? [selected] : []), 'builder');
       controls.clear(); onClose();
     } catch (error) { toast(error.message || 'Не удалось создать КП', 'err'); }
     finally { setBusy(false); }
   }
   if (!open) return null;
-  return <Drawer open onClose={close} title="Создать коммерческое предложение" sub="Укажите клиента и поездку, затем подберите услуги в конструкторе." width="min(760px,96vw)" className="kp-workspace-drawer" footer={<div className="kp-inline-actions"><Button variant="secondary" disabled={busy} onClick={close}>Закрыть</Button><Button disabled={busy} onClick={submit}>{busy ? 'Создаём…' : 'Открыть конструктор'}</Button></div>}>
+  return <Drawer open onClose={close} title="Создать коммерческое предложение" sub="Укажите клиента и поездку, затем подберите услуги в конструкторе." width="min(760px,96vw)" className="kp-workspace-drawer kp-create-drawer" footer={<div className="kp-inline-actions"><Button variant="secondary" disabled={busy} onClick={close}>Закрыть</Button><Button disabled={busy} onClick={submit}>{busy ? 'Создаём…' : 'Открыть конструктор'}</Button></div>}>
     <div className="kp-workspace">
       <section className="kp-section"><h2>Клиент и поездка</h2>
         <div className="kp-form-grid">
-          <Field label="Для кого предложение" required><Input locationAutocomplete={false} value={recipient} maxLength={255} onChange={e => setRecipient(e.target.value)} placeholder="Имя клиента или компания" /></Field>
+          <Field label="Для кого предложение" required error={errors.recipient}><Button variant="secondary" size="field" iconRight="chevRight" onClick={() => setEntityPickerOpen(true)}>Выбрать клиента, юрлицо или заказ</Button><Input error={errors.recipient} aria-invalid={Boolean(errors.recipient)} locationAutocomplete={false} value={recipient} maxLength={255} onChange={e => { setRecipient(e.target.value); setRecipientRef(null); }} placeholder="Имя клиента или компания" /></Field>
           <Field label="Заказ"><div className="kp-create-order"><Button size="field" variant="secondary" iconRight="chevRight" onClick={() => setOrderPickerOpen(true)}>{selected ? `Заказ ${selected.no}` : 'Выбрать заказ'}</Button>{selected && <Button variant="ghost" size="sm" onClick={() => setOrderNo('')}>Отвязать</Button>}</div><span className="kp-field-note">Можно связать позже</span></Field>
-          <ProposalRouteFields value={route} onChange={setRoute} />
+          <ProposalRouteFields errors={errors} value={route} onChange={setRoute} />
           <UFDateField label="Начало поездки" value={start} onChange={setStart} minDate={new Date()} />
-          <UFDateField label="Окончание поездки" value={end} onChange={setEnd} minDate={start || new Date()} />
-          <Field label="Название предложения"><Input locationAutocomplete={false} value={title} maxLength={255} onChange={e => setTitle(e.target.value)} placeholder={route || 'Например: Командировка в Стамбул'} /></Field>
+          <UFDateField error={errors.end} label="Окончание поездки" value={end} onChange={setEnd} minDate={start || new Date()} />
+          <Field label="Название предложения" required error={errors.title}><Input error={errors.title} aria-invalid={Boolean(errors.title)} locationAutocomplete={false} value={title} maxLength={255} onChange={e => setTitle(e.target.value)} placeholder={route || 'Например: Командировка в Стамбул'} /></Field>
           <Field label="Валюта предложения"><Select value={currency} options={CURRENCIES.map(item => ({ value: item.code, label: `${item.code} · ${item.name}` }))} onChange={e => setCurrency(e.target.value)} /></Field>
         </div>
       </section>
       <section className="kp-section"><Field label="Комментарий для клиента" hint="Необязательно, попадёт в предложение"><textarea className="input" rows={3} maxLength={4000} value={note} onChange={e => setNote(e.target.value)} placeholder="Цель поездки и важные условия…" /></Field></section>
       <p className="kp-explanation">Сейчас создаётся только черновик в CRM. В конструкторе добавьте варианты услуг и создайте ссылку для клиента. Письмо не отправляется, бронирование не запускается.</p>
     </div>
+    {entityPickerOpen && <UnifiedBindPicker open title="Клиент, юрлицо или заказ" onClose={() => setEntityPickerOpen(false)} onPick={value => { setRecipientRef(value.mode === 'order' ? null : { type: value.mode, id: value.id }); setRecipient(value.mode === 'order' ? value.order.client || value.label : value.mode === 'person' ? value.client : value.company.name); if (value.mode === 'order') setOrderNo(String(value.order.no)); setErrors(current => ({ ...current, recipient: '' })); setEntityPickerOpen(false); }} />}
     {orderPickerOpen && <OrderPickerDrawer orders={orders} title="Выбрать заказ" onPick={order => { setOrderNo(String(order.no)); if (!recipient) setRecipient(order.client || ''); setOrderPickerOpen(false); }} onClose={() => setOrderPickerOpen(false)} />}
     <ConfirmDialog open={closePrompt} title="Сохранить форму создания КП?" message="Введённые данные сохранятся в черновиках на этом устройстве. Позже нажмите «Продолжить» в блоке черновиков. Клиенту ничего не отправляется." confirmLabel="Сохранить и закрыть" confirmVariant="primary" onCancel={() => setClosePrompt(false)} onConfirm={() => { setClosePrompt(false); onClose(); }} />
   </Drawer>;
