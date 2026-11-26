@@ -90,3 +90,24 @@ export function receiptDashboardDrafts(documents = [], storage, onOpen) {
   const receipts = documents.filter(row=>row.isReceiptDraft || row.metadata?.receipt_import?.stage==='draft').map(row=>({id:`receipt/${row.serverId || row.id}`,category:'receipts',title:row.name || row.title || row.document_number || 'Квитанция',stage:'form',services:['Редактор квитанций'],savedAt:new Date(row.updated_at || row.created_at || row.date).getTime(),canDelete:false,onContinue:()=>onOpen({documentId:row.serverId || row.id})}));
   return [...imports,...receipts];
 }
+
+// The editor and dashboard must use the same account-scoped storage.
+export function receiptDraftStorage(storage, owner) {
+  if (!storage || !owner) return null;
+  const prefix = `psc:receipt-drafts:${encodeURIComponent(owner)}:`;
+  const claimKey = 'psc:receipt-drafts:legacy-owner';
+  const keys = [RECEIPT_IMPORT_DRAFTS_KEY, LEGACY_RECEIPT_IMPORT_DRAFT_KEY];
+  try {
+    const claimed = storage.getItem(claimKey);
+    if (!claimed || claimed === owner) {
+      storage.setItem(claimKey, owner);
+      for (const key of keys) {
+        if (storage.getItem(prefix + key) === null && storage.getItem(key) !== null) {
+          storage.setItem(prefix + key, storage.getItem(key));
+          storage.removeItem(key);
+        }
+      }
+    }
+  } catch { /* Normal write/read paths report storage failures. */ }
+  return {getItem:key=>storage.getItem(prefix+key), setItem:(key,value)=>{storage.setItem(prefix+key,value);if(typeof window!=='undefined')window.dispatchEvent(new Event('receipt-drafts-changed'));},removeItem:key=>storage.removeItem(prefix+key)};
+}

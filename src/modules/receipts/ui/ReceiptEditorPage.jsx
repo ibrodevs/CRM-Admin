@@ -1,3 +1,4 @@
+import { useAuth } from '../../../shared/auth/auth-context.jsx';
 import { DraftWorkspaceList } from '../../../shared/drafts/Drafts.jsx';
 import { DraftCloseDialog } from '../../../shared/ui/DraftCloseDialog.jsx';
 import { SearchToolbar } from '../../../shared/ui/SearchToolbar.jsx';
@@ -27,7 +28,7 @@ import { Topbar } from '../../../shared/ui/Topbar.jsx';
 import { toLegacyDocument } from '../../../legacy/adapters/legacy-adapters.js';
 import { documentsApi } from '../../documents/api.js';
 import { ReceiptBrandDocumentDrawer, ReceiptDocumentPreview, ReceiptParticipantSummary, ReceiptSpecializedForm, normalizeReceiptDraft, receiptDetailsLines, receiptFinancialTotal, receiptParticipantLabel } from './editor.jsx';
-import { createReceiptImportDraftId, readReceiptImportDrafts, receiptImportDraftTitle, removeReceiptImportDraft, upsertReceiptImportDraft, writeReceiptImportDrafts } from '../model/import-drafts.js';
+import { createReceiptImportDraftId, receiptDraftStorage, readReceiptImportDrafts, receiptImportDraftTitle, removeReceiptImportDraft, upsertReceiptImportDraft, writeReceiptImportDrafts } from '../model/import-drafts.js';
 import { inlineSupplierDocumentUrl, freshSupplierDocumentUrl, waitForReceiptPdfJob, PDF_SYNC_SUCCESS_NOTICE_MS, supplierDocumentPageUrl } from '../../documents/model.js';
 import { currencySymbol, resolveCurrency } from '../../../shared/lib/money.js';
 import { RU_DATE_TIME } from '../../../shared/lib/datetime.js';
@@ -4115,6 +4116,8 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
 }
 
 function ReceiptEditorPage({ intent, onConsume, documents = [], orders = [], services = [], companies = [], clients = [], onChanged, onOpenOrder, onCreateOrder }) {
+  const { user } = useAuth();
+  const receiptStore = typeof window !== 'undefined' && user ? receiptDraftStorage(window.localStorage, `${user.tenant_id || ''}:${user.id}`) : null;
   const toast = useToast();
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
@@ -4125,7 +4128,7 @@ function ReceiptEditorPage({ intent, onConsume, documents = [], orders = [], ser
   const [importing, setImporting] = useState(false);
   const [resumeImportDraftId, setResumeImportDraftId] = useState(null);
   const [importDrafts, setImportDrafts] = useState(() => (
-    typeof window === 'undefined' ? [] : readReceiptImportDrafts(window.localStorage)
+    typeof window === 'undefined' ? [] : readReceiptImportDrafts(receiptStore)
   ));
   const [imported, setImported] = useState([]);
 
@@ -4135,7 +4138,7 @@ function ReceiptEditorPage({ intent, onConsume, documents = [], orders = [], ser
   const registryPdfSyncSequence = useRef({});
   const registryPdfSyncChains = useRef({});
   useEffect(() => {
-    if (typeof window !== 'undefined') setImportDrafts(readReceiptImportDrafts(window.localStorage));
+    if (typeof window !== 'undefined') setImportDrafts(readReceiptImportDrafts(receiptStore));
   }, []);
   useEffect(() => () => {
     registryPdfSyncTimers.current.forEach((timer) => clearTimeout(timer));
@@ -4145,7 +4148,7 @@ function ReceiptEditorPage({ intent, onConsume, documents = [], orders = [], ser
   }, []);
   const saveImportDraft = (draft) => {
     const next = upsertReceiptImportDraft(importDrafts, draft);
-    if (typeof window === 'undefined' || !writeReceiptImportDrafts(window.localStorage, next)) {
+    if (typeof window === 'undefined' || !writeReceiptImportDrafts(receiptStore, next)) {
       toast('Не удалось сохранить черновик в браузере. Освободите место и попробуйте снова.', 'err');
       return false;
     }
@@ -4156,7 +4159,7 @@ function ReceiptEditorPage({ intent, onConsume, documents = [], orders = [], ser
   const clearImportDraft = (draftId) => {
     if (!draftId) return;
     const next = removeReceiptImportDraft(importDrafts, draftId);
-    if (typeof window === 'undefined' || !writeReceiptImportDrafts(window.localStorage, next)) {
+    if (typeof window === 'undefined' || !writeReceiptImportDrafts(receiptStore, next)) {
       toast('Не удалось удалить черновик из хранилища браузера. Попробуйте ещё раз.', 'err');
       return;
     }

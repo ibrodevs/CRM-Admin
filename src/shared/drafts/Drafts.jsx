@@ -22,6 +22,8 @@ export function DraftProvider({ owner, children }) {
   return <DraftContext.Provider value={store}>{children}</DraftContext.Provider>;
 }
 
+export function useDraftStore() { return useContext(DraftContext); }
+
 export function useDraftState(scope, field, initial) {
   const store = useContext(DraftContext);
   const prefix = useContext(ScopeContext);
@@ -62,7 +64,7 @@ export function useDraftNavigation(handler) {
   const store = useContext(DraftContext);
   const current = useRef(handler);
   current.current = handler;
-  useEffect(() => store?.setOpener?.((entry) => current.current(entry, store)), [store]);
+  useEffect(() => { const open = (entry) => current.current(entry, store); const dispose=store?.setOpener?.(open); const event=e=>open(e.detail); window.addEventListener('open-work-draft',event); return()=>{dispose?.();window.removeEventListener('open-work-draft',event);}; }, [store]);
 }
 export function useDraftStatus() {
   const store = useContext(DraftContext);

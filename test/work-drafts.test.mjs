@@ -149,3 +149,28 @@ test('saved KP searches resume in their own proposal without mixing with free bo
   store.clear(entries[0].scope);
   assert.equal(draftsForRoute(store.workspaces(), 'offers').length, 0);
 });
+
+test('server recovery preserves creation time, dates and newer local changes', () => {
+  const storage=memory();let now=Date.now();const store=createDraftStore(storage,'tenant:operator',()=>now);
+  store.write('free-booking/hotel','checkin',new Date(2027,0,5));
+  const created=now;now+=60000;store.write('free-booking/hotel','dest','Стамбул');
+  const exported=store.exportRecords('free-booking');assert.equal(exported[0].createdAt,created);
+  assert.equal(exported[0].savedAt,now);
+  const recovered=createDraftStore(memory(),'tenant:operator',()=>now+DRAFT_TTL+1000);
+  recovered.importRecords(exported);
+  assert.equal(recovered.read('free-booking/hotel','dest'),'Стамбул');
+  assert.ok(recovered.read('free-booking/hotel','checkin') instanceof Date);
+  store.write('free-booking/hotel','dest','Москва');now+=60000;
+  store.importRecords(exported);
+  assert.equal(store.read('free-booking/hotel','dest'),'Москва');
+});
+
+test('unfinished edits inside a saved КП remain visible and recoverable', () => {
+  const store=createDraftStore(memory(),'tenant:operator');
+  store.write('proposal-workspace/123','form',{baseVersion:3,draft:{title:'Новая редакция',recipient:'Иванов',groups:[]}});
+  const row=store.workspaces().find(r=>r.proposalId==='123');
+  assert.ok(row);
+  assert.match(row.title,/Новая редакция/);
+  assert.equal(row.client,'Иванов');
+  assert.equal(store.exportRecords(row.scope).length,1);
+});

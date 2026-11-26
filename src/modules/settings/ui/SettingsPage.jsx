@@ -1,3 +1,4 @@
+import { ProposalApprovalSettings } from './ProposalApprovalSettings.jsx';
 import { OrgStructure } from '../../users/index.js';
 import { resultsOf } from '../../../shared/api/client.js';
 import { SectionInfo } from '../../../shared/ui/SectionInfo.jsx';
@@ -642,7 +643,7 @@ function SettingsPage({ users = [], onUsersChange }) {
   const [tab, setTab] = useState(canUsers ? 'users' : canIntegrations ? 'params' : 'roles');
   const groups = [
     { title: 'Курсы валют', items: [['Валюты и курсы организации', () => setModal('currency')]] },
-    { title: 'Общие настройки', items: [['Правила уведомлений', () => setModal('notif')]] },
+    { title: 'Общие настройки', items: [['Правила уведомлений', () => setModal('notif')], ['Внутреннее согласование КП', () => setModal('proposal-approval')]] },
     { title: 'API / интеграции', items: [['API-ключи: просмотр и отзыв', () => setModal('apiaccess')], ['Сгенерировать API ключ', () => setModal('apikey')], ['Коды ошибок интеграций', () => setModal('errcodes')]] },
     ...(canUsers ? [{ title: 'Сотрудники', items: [['Нормативы отклика и доступ к услугам', () => setModal('sla')]] }] : []),
     { title: 'Шаблоны документов', items: [['Добавить шаблон', () => setModal('template-add')], ['Изменить шаблон', () => setModal('templates')]] },
@@ -693,6 +694,7 @@ function SettingsPage({ users = [], onUsersChange }) {
       <SettingsDirectory kind={modal === 'locations' || modal === 'service-kinds' ? modal : null} onClose={() => setModal(null)} />
       <ExtrasCatalogModal open={modal === 'extras'} onClose={() => setModal(null)} />
       <CardVisibilityModal open={modal === 'cardvis'} onClose={() => setModal(null)} />
+      {modal === 'proposal-approval' && <ProposalApprovalSettings onClose={() => setModal(null)} />}
       {modal === 'cardadmin' && <ServiceCardAdminDrawer onClose={() => setModal(null)} />}
       <CurrencyModal open={modal === 'currency'} onClose={() => setModal(null)} />
       <ApiKeyModal open={modal === 'apikey'} onClose={() => setModal(null)} />

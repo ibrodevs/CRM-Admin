@@ -88,3 +88,15 @@ test('название черновика различает одну и нес�
   assert.equal(receiptImportDraftTitle(draft('draft-1', '', 'avia.pdf')), 'avia.pdf');
   assert.equal(receiptImportDraftTitle({ files: [{ name: 'avia.pdf' }, { name: 'rail.pdf' }] }), 'avia.pdf и ещё 1');
 });
+
+test('receipt imports are isolated by account and legacy data migrates only once', async () => {
+  const {receiptDraftStorage,readReceiptImportDrafts,writeReceiptImportDrafts,RECEIPT_IMPORT_DRAFTS_KEY}=await import('../src/modules/receipts/model/import-drafts.js');
+  const values=new Map();const storage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+  storage.setItem(RECEIPT_IMPORT_DRAFTS_KEY,JSON.stringify({version:2,drafts:[{id:'old',savedAt:'2026-11-26T10:00:00Z',files:[{name:'test.pdf'}]}]}));
+  const a=receiptDraftStorage(storage,'tenant:a'),b=receiptDraftStorage(storage,'tenant:b');
+  assert.equal(readReceiptImportDrafts(a).length,1);
+  assert.equal(readReceiptImportDrafts(b).length,0);
+  writeReceiptImportDrafts(b,[{id:'b',savedAt:'2026-11-26T11:00:00Z',files:[{name:'b.pdf'}]}]);
+  assert.equal(readReceiptImportDrafts(a)[0].id,'old');
+  assert.equal(readReceiptImportDrafts(b)[0].id,'b');
+});

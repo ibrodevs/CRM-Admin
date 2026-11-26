@@ -29,7 +29,7 @@ export function DesktopNotifier({ enabled, desktop = false, notifications = [], 
         else if (type === 'order' && n.order) {
           const target = orders.find((o) => String(o.no) === String(n.order) || String(o.id) === String(n.order));
           action.onClick = target ? () => onOpenOrder(target, n.tab) : () => toast('Связанный заказ не найден или недоступен', 'warn');
-        } else action.route = ({ profile: 'profile', finance: 'finance', documents: 'documents', returns: 'returns', offers: 'offers', order: 'orders' })[type] || 'notifications';
+        } else action.route = ({ dashboard: 'dashboard', profile: 'profile', finance: 'finance', documents: 'documents', returns: 'returns', offers: 'offers', order: 'orders' })[type] || 'notifications';
         toast(n.desc, kind, { id: `notification:${n.id}`, title: n.title, context: details.context.length ? details.context : [n.source || 'Система', 'Связанный объект не указан'], deadlineAt: details.deadlineAt, deadlineLabel: details.deadlineLabel, createdAt: n.date || n.created_at, persistent: kind === 'err' || kind === 'warn', action, duration: kind === 'err' || kind === 'warn' ? 8000 : 6000 });
       });
     }, 3000);

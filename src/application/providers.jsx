@@ -1,3 +1,5 @@
+import { readReceiptImportDrafts, writeReceiptImportDrafts, receiptDraftStorage } from '../modules/receipts/model/import-drafts.js';
+import { DraftRegistryProvider } from '../shared/drafts/DraftRegistry.jsx';
 import { DraftProvider } from '../shared/drafts/Drafts.jsx';
 import { PreferenceEffects } from './PreferenceEffects.jsx';
 import { ToastProvider } from '../shared/ui/Toast.jsx';
@@ -7,7 +9,8 @@ import { syncLegacyCurrentUser, syncLegacyCurrencies } from '../legacy/adapters/
 
 function AccountWorkspace({ children }) {
   const { user } = useAuth();
-  return <DraftProvider key={user ? `${user.tenant_id || ''}:${user.id}` : 'anonymous'} owner={user ? `${user.tenant_id || ''}:${user.id}` : null}><WorkspaceProvider><PreferenceEffects syncCurrencies={syncLegacyCurrencies} />{children}</WorkspaceProvider></DraftProvider>;
+  const receiptStore = typeof window !== 'undefined' && user ? receiptDraftStorage(window.localStorage, `${user.tenant_id || ''}:${user.id}`) : null;
+  return <DraftProvider key={user ? `${user.tenant_id || ''}:${user.id}` : 'anonymous'} owner={user ? `${user.tenant_id || ''}:${user.id}` : null}><DraftRegistryProvider user={user} receiptStorage={{read:()=>readReceiptImportDrafts(receiptStore),restore:draft=>writeReceiptImportDrafts(receiptStore,[draft,...readReceiptImportDrafts(receiptStore).filter(d=>d.id!==draft.id)])}}><WorkspaceProvider><PreferenceEffects syncCurrencies={syncLegacyCurrencies} />{children}</WorkspaceProvider></DraftRegistryProvider></DraftProvider>;
 }
 
 export function AppProviders({ children }) {

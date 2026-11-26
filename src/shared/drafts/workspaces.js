@@ -18,6 +18,7 @@ export function filterDrafts(entries, { stage = '', service = '', category = '' 
   return entries.filter(entry => (!category || draftCategory(entry) === category) && (!stage || (entry.stage || 'form') === stage) && (!service || entry.services.includes(service)));
 }
 export function hasDraftWork(fields) {
+  if (fields.form?.draft && typeof fields.form.draft === 'object') return true;
   if (fields.liveOffers?.length || fields.offers?.length || fields.results?.length || fields.selected || fields.workflow || fields.workflowState || fields.proposal) return true;
   const insurance = fields.request;
   if (insurance && (insurance.countries?.trim() || insurance.start || insurance.end || insurance.citizenship?.trim() || insurance.travellers?.some((person) => person.birth_date) || insurance.purpose && insurance.purpose !== 'tourism')) return true;
@@ -66,7 +67,7 @@ export function savedWorkspaces(records) {
     let group;
     if (/^proposal-workspace\/[^/]+$/.test(scope)) {
       const proposalId = scope.split('/')[1];
-      group = { id: `kp/${proposalId}`, scope, type: 'route', route: 'offers', proposalId, title: `КП · ${fields.form?.title || 'Предложение'}` };
+      group = { id: `kp/${proposalId}`, scope, type: 'route', route: 'offers', proposalId, title: `КП · ${fields.form?.draft?.title || fields.form?.title || 'Предложение'}` };
     } else if (/^kp-service-picker\/[^/]+\//.test(scope)) {
       const proposalId = scope.split('/')[1];
       if (proposalId !== 'standalone') group = { id: `kp/${proposalId}`, scope: `kp-service-picker/${proposalId}`, type: 'route', route: 'offers', proposalId, title: 'КП · сохранённый подбор услуг' };
@@ -98,7 +99,9 @@ export function savedWorkspaces(records) {
     if (label) services.add(label);
     for (const item of fields.draft || []) if (KINDS[item.kind]) services.add(KINDS[item.kind]);
     const stage = [previous?.stage || 'form', workStage(fields)].sort((a,b) => DRAFT_STAGES.findIndex(s => s.value === b) - DRAFT_STAGES.findIndex(s => s.value === a))[0];
-    groups.set(group.id, { ...group, stage, services: [...services], savedAt: Math.max(previous?.savedAt || 0, record.savedAt), count: Math.max(previous?.count || 0, fields.draft?.length || 0) });
+    const form = fields.form?.draft || fields.form || fields;
+    const order = group.orderId && contexts.get(group.orderId);
+    groups.set(group.id, { ...group, client: previous?.client || form.recipient || form.client?.name || (typeof form.client === 'string' ? form.client : '') || order?.client || '', orderNumber: order?.no || order?.number || previous?.orderNumber || '', createdAt: Math.min(previous?.createdAt || Infinity,record.createdAt || record.savedAt), stage, services: [...services], savedAt: Math.max(previous?.savedAt || 0, record.savedAt), count: Math.max(previous?.count || 0, fields.draft?.length || 0) });
   }
   return [...groups.values()].sort((a, b) => b.savedAt - a.savedAt);
 }

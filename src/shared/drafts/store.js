@@ -40,7 +40,7 @@ export function createDraftStore(storage, owner, now = Date.now) {
       if (raw) {
         const record = JSON.parse(raw);
         if (record.version !== 1 || record.owner !== owner || !Number.isFinite(record.savedAt)
-            || now() - record.savedAt > DRAFT_TTL || record.savedAt > now() + 60_000
+            || (!record.persistent && now() - record.savedAt > DRAFT_TTL) || record.savedAt > now() + 60_000
             || !record.fields || typeof record.fields !== 'object' || Array.isArray(record.fields)) {
           storage.removeItem(key(scope));
         } else {
@@ -80,12 +80,32 @@ export function createDraftStore(storage, owner, now = Date.now) {
         if (!name.startsWith(prefix)) continue;
         try {
           const record = JSON.parse(storage.getItem(name));
-          if (record?.version !== 1 || record.owner !== owner || !Number.isFinite(record.savedAt) || now() - record.savedAt > DRAFT_TTL || record.savedAt > now() + 60_000 || !record.fields || typeof record.fields !== 'object' || Array.isArray(record.fields)) continue;
+          if (record?.version !== 1 || record.owner !== owner || !Number.isFinite(record.savedAt) || (!record.persistent && now() - record.savedAt > DRAFT_TTL) || record.savedAt > now() + 60_000 || !record.fields || typeof record.fields !== 'object' || Array.isArray(record.fields)) continue;
           const scope = decodeURIComponent(name.slice(prefix.length));
-          records.push({ scope, savedAt: record.savedAt, fields: cache.get(scope) || unpack(record.fields) });
+          records.push({ scope, createdAt: record.createdAt || record.savedAt, savedAt: record.savedAt, fields: cache.get(scope) || unpack(record.fields) });
         } catch { /* A damaged record is ignored; saving and recovery still work. */ }
       }
       return savedWorkspaces(records);
+    },
+    exportRecords(scopePrefix) {
+      const records=[];
+      for (const name of Object.keys(storage)) {
+        if (!name.startsWith(prefix)) continue;
+        const scope=decodeURIComponent(name.slice(prefix.length));
+        if (scope !== scopePrefix && !scope.startsWith(scopePrefix+'/')) continue;
+        try { const record=JSON.parse(storage.getItem(name)); if(record?.owner===owner && record.fields) records.push({scope,fields:record.fields,savedAt:record.savedAt,createdAt:record.createdAt || record.savedAt}); } catch {}
+      }
+      return records;
+    },
+    importRecords(records) {
+      for (const record of records) {
+        if (!record.scope || !record.fields || record.scope.startsWith('__')) continue;
+        const old=JSON.parse(storage.getItem(key(record.scope)) || 'null');
+        if(old?.savedAt >= record.savedAt) continue;
+        const raw=JSON.stringify({version:1,owner,persistent:true,createdAt:record.createdAt || record.savedAt,savedAt:record.savedAt,fields:record.fields});
+        storage.setItem(key(record.scope),raw);serialized.set(record.scope,raw);cache.set(record.scope,unpack(record.fields));
+      }
+      announce({restored:true});
     },
     notify() { listeners.forEach((fn) => fn()); },
     has(scope, field) { return Object.hasOwn(load(scope), field); },
@@ -100,7 +120,9 @@ export function createDraftStore(storage, owner, now = Date.now) {
           const current = record?.version === 1 && record.owner === owner && now() - record.savedAt <= DRAFT_TTL ? unpack(record.fields) : {};
           fields = { ...current, ...Object.fromEntries([...pending].map((name) => [name, fields[name]])) };
         }
-        const raw = JSON.stringify({ version: 1, owner, savedAt: now(), fields: pack(fields) });
+        let createdAt = now();
+        try { const previous = JSON.parse(storage.getItem(key(scope)) || 'null'); createdAt = previous?.createdAt || previous?.savedAt || createdAt; } catch {}
+        const raw = JSON.stringify({ version: 1, owner, createdAt, savedAt: now(), fields: pack(fields) });
         storage.setItem(key(scope), raw);
         serialized.set(scope, raw); dirty.delete(scope); cache.set(scope, fields);
         announce({ saved: true, failed: false });

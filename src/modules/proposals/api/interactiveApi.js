@@ -1,5 +1,6 @@
 import { apiPath, apiRequest } from '../../../shared/api/client.js';
 export const interactiveApi = {
+  internalApproval: (id,body) => apiRequest(apiPath(`proposals/${id}/internal-approval/`),{method:'POST',body}),
   restoreDraft: (id, draftVersion, version) => apiRequest(apiPath(`proposals/${id}/draft-revisions/${draftVersion}/restore/`), { method: 'POST', body: { version } }),
   get: (id, signal) => apiRequest(apiPath(`proposals/${id}/workspace/`), { signal }),
   save: (id, version, draft, order) => apiRequest(apiPath(`proposals/${id}/workspace/`), { method: 'PUT', body: { version, draft, order } }),
