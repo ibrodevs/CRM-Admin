@@ -1,8 +1,11 @@
 import { searchAirportOptions, airportOption } from '../../locations/model.js';
+import { flightFareConditions } from '../../services/api.js';
 import { splitProposalRoute } from './presentation.js';
 export function proposalSearchPlan(draft, preferences = {}) {
   const {from,to} = splitProposalRoute(draft.route || '');
   if (!from.trim() || !to.trim() || !draft.travel_start || !draft.travel_end) throw new Error('Укажите маршрут и полный период поездки в КП');
+  const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
+  if (!validDate(draft.travel_start) || !validDate(draft.travel_end) || draft.travel_end < draft.travel_start) throw new Error('Проверьте даты поездки: окончание не может быть раньше начала');
   const airport = text => {
     const code = /\b([A-Z]{3})\b/.exec(text)?.[1];
     return airportOption(code || text) || searchAirportOptions(text).find(item => item.kind === 'city') || searchAirportOptions(text)[0];
@@ -24,7 +27,8 @@ export function proposalSearchPlan(draft, preferences = {}) {
 }
 export function autoProposalOption(offer) {
   const i=offer.itinerary || {}, segments=i.segments || [];
+  const conditions = offer.kind === 'avia' ? flightFareConditions(offer) : [];
   return { kind:offer.kind, offer:offer.id, currency:offer.price.currency, cost:Number(offer.price.amount), fee:0,
     title:i.property_name || i.description || segments.map(s=>`${s.origin} → ${s.destination}`).join(' · ') || i.name || 'Предложение поставщика',
-    sub:[i.check_in,i.check_out,i.room,i.meal_plan,...segments.map(s=>[[s.airline,s.flight_number].filter(Boolean).join(' '),[s.departure,s.arrival].filter(Boolean).join(' → ')].filter(Boolean).join(' · '))].filter(Boolean).join(' · ') };
+    sub:[...conditions.map(rule => `${rule.k}: ${rule.segments ? rule.segments.map(s => `${s.route} — ${s.v}`).join('; ') : rule.v}`),i.check_in,i.check_out,i.room,i.meal_plan,...segments.map(s=>[[s.airline,s.flight_number].filter(Boolean).join(' '),[s.departure,s.arrival].filter(Boolean).join(' → ')].filter(Boolean).join(' · '))].filter(Boolean).join(' · ') };
 }

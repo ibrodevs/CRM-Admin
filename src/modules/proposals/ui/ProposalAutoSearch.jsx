@@ -16,7 +16,28 @@ export function ProposalAutoSearch({ proposalId, draft, companyId, onPolicySelec
   const [policiesLoading,setPoliciesLoading]=useState(Boolean(companyId));
   const [rows,setRows]=useState([]),[messages,setMessages]=useState([]),[busy,setBusy]=useState(false),[added,setAdded]=useState([]);
   const request=useRef(null);
-  useEffect(()=>{if(!companyId)return;setPoliciesLoading(true);const c=new AbortController();apiRequest(apiPath(`companies/${companyId}/travel-policies/`),{signal:c.signal}).then(value=>{const active=resultsOf(value).filter(p=>p.is_active && (!p.effective_from || p.effective_from<=draft.travel_start) && (!p.effective_to || p.effective_to>=draft.travel_end));setPolicies(active);if(active.length===1){setPolicyId(active[0].id);onPolicySelect?.(active[0].id);}}).catch(e=>{if(!c.signal.aborted)setPolicyError(e.message);}).finally(()=>{if(!c.signal.aborted)setPoliciesLoading(false);});return()=>c.abort();},[companyId]);
+  const policySelect = useRef(onPolicySelect);
+  policySelect.current = onPolicySelect;
+  useEffect(() => {
+    setPolicies([]); setPolicyError(''); setPolicyId('');
+    setPoliciesLoading(Boolean(companyId));
+    if (!companyId) { policySelect.current?.(null); return; }
+    const c = new AbortController();
+    apiRequest(apiPath(`companies/${companyId}/travel-policies/`), {signal:c.signal}).then(value => {
+      if (c.signal.aborted) return;
+      const active = resultsOf(value).filter(p => p.is_active && (!p.effective_from || p.effective_from <= draft.travel_start) && (!p.effective_to || p.effective_to >= draft.travel_end));
+      setPolicies(active);
+      const selected = active.find(p => p.id === draft.policy_id) || (active.length === 1 ? active[0] : null);
+      setPolicyId(selected?.id || ''); policySelect.current?.(selected?.id || null);
+    }).catch(e => { if (!c.signal.aborted) setPolicyError(e.message); })
+      .finally(() => { if (!c.signal.aborted) setPoliciesLoading(false); });
+    return () => c.abort();
+  }, [companyId, draft.travel_start, draft.travel_end]);
+  const searchContext = JSON.stringify([companyId, draft.route, draft.travel_start, draft.travel_end, draft.currency, (draft.groups || []).map(g => g.kind || g.options?.[0]?.kind), prefs, policyId]);
+  useEffect(() => {
+    request.current?.abort(); request.current = null;
+    setRows([]); setMessages([]); setAdded([]); setBusy(false);
+  }, [searchContext]);
   useEffect(()=>()=>request.current?.abort(),[]);
   const policy=policies.find(p=>p.id===policyId);
   const set=(key,value)=>setPrefs(current=>({...current,[key]:value}));
@@ -34,7 +55,7 @@ export function ProposalAutoSearch({ proposalId, draft, companyId, onPolicySelec
           const created=await servicesApi.search({kind:part.kind,criteria:part.criteria});let offers=[],terminal=false;
           for(let n=0;n<90;n++){
             if(c.signal.aborted)break;
-            const [status,payload]=await Promise.all([servicesApi.searchStatus(created.search_id,c.signal),servicesApi.offers(created.search_id,{page_size:100},c.signal)]);
+            const [status,payload]=await Promise.all([servicesApi.searchStatus(created.search_id,c.signal),servicesApi.offers(created.search_id,{page_size:100,sort:'cheap'},c.signal)]);
             offers=resultsOf(payload);terminal=['complete','completed','partial','failed','cancelled','error','done','expired'].includes(String(status.status||status.state).toLowerCase());
             if(terminal)break;
             await new Promise(resolve=>{const timer=setTimeout(resolve,1000);c.signal.addEventListener('abort',()=>{clearTimeout(timer);resolve();},{once:true});});

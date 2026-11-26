@@ -149,7 +149,7 @@ export function InteractiveProposal({ proposalId, onClose, onChanged, orders = [
     if (service.currency !== draft.currency) { setError('Валюты КП и услуги должны совпадать'); return; }
     const kind = KP_KINDS[service.kind] ? service.kind : 'other';
     const option = { ...newOption(kind), service: service.id, title: service.title, price: String(service.client_total), currency: draft.currency };
-    const group = draft.groups.find(row => row.options[0]?.kind === kind);
+    const group = draft.groups.find(row => (row.kind || row.options[0]?.kind) === kind);
     if (group) updateGroup(group.id, row => ({ ...row, options: [...row.options, option] }));
     else update({ groups: [...draft.groups, { id: uid('g'), kind, title: KP_KINDS[kind], required: false, options: [option] }] });
     setPickedService('');

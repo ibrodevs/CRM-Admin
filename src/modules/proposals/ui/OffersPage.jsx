@@ -1515,7 +1515,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
                 <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => setEditTarget(p)}>
                   <td className="t-strong">{p.id}</td>
                   <td>{p.order ? <span style={{ color: 'var(--blue)', fontWeight: 600 }}>№ {p.order}</span> : <span style={{ color: 'var(--muted)' }}>Без заказа</span>}</td>
-                  <td><div className="kp-registry-context"><strong>{p.interactive?.recipient || p.client}</strong><span>{readableServiceTitle(p.interactive?.route || p.brief?.route || p.interactive?.title || p.purpose || "Направление не указано")}</span><small>{proposalContext(p.interactive || {}).dates}</small></div></td>
+                  <td><div className="kp-registry-context"><strong>{p.interactive?.recipient || p.client}</strong>{p.interactive?.title && <span>{p.interactive.title}</span>}<span>{readableServiceTitle(p.interactive?.route || p.brief?.route || p.interactive?.title || p.purpose || "Направление не указано")}</span><small>{proposalContext(p.interactive || {}).dates}</small></div></td>
                   <td>{p.interactive ? `${p.interactive.option_count} услуг · ${p.interactive.group_count} разделов` : pVariants(p).length}</td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{p.interactive ? (p.interactive.total != null ? kpM(p.interactive.total, p.interactive.currency) : 'Зависит от выбора') : proposalSummary(p)}</td>
                   <td>{p.validUntil}</td>

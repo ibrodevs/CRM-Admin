@@ -55,3 +55,30 @@ test('late registry refresh never reopens an editor closed after saving', async 
   const refreshing=mod.exports.refresh();current=null;resolve({serverId:'kp-1',title:'Saved'});await refreshing;
   assert.equal(current,null);assert.equal(registry[0].title,'Saved');
 });
+
+
+test('automatic search rejects impossible dates and reversed periods before calling a provider', () => {
+  for (const dates of [{travel_start:'2026-02-30'}, {travel_end:'2026-12-01'}, {travel_start:'not-a-date'}]) {
+    assert.throws(() => proposalSearchPlan({...trip,...dates}), /даты поездки/);
+  }
+});
+test('automatic flight selection retains per-segment baggage and fare restrictions in the proposal', () => {
+  const item = autoProposalOption({id:'flight',kind:'avia',price:{amount:'100',currency:'RUB'},fare:{refundable:false},itinerary:{segments:[{origin:'MOW',destination:'IST',baggage:{pieces:1,weight:23},hand_baggage:'8KG'}]}});
+  assert.match(item.sub,/1 место · 23 кг/);
+  assert.match(item.sub,/Ручная кладь: 8 кг/);
+  assert.match(item.sub,/Возврат: Невозвратный/);
+});
+
+test('an imported order service fills the selected empty block without creating a second block', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source=readFileSync(new URL('../src/modules/proposals/ui/InteractiveProposal.jsx',import.meta.url),'utf8');
+  const body=source.slice(source.indexOf('  function addService() {'),source.indexOf('  const addOptionFromSearch'));
+  const draft={currency:'RUB',groups:[{id:'empty-avia',kind:'avia',options:[]}]};
+  const service={id:'s',currency:'RUB',kind:'avia',client_total:'100',title:'Москва → Стамбул'};
+  let updates=0;
+  const run=new Function('draft','orderServices','pickedService','KP_KINDS','newOption','updateGroup','update','setPickedService','setError','uid',`${body};addService();`);
+  run(draft,[service],'s',{avia:'Авиа'},()=>({id:'option'}),(id,fn)=>{draft.groups=draft.groups.map(g=>g.id===id?fn(g):g);},()=>updates++,()=>{},()=>{},()=> 'new-group');
+  assert.equal(updates,0);
+  assert.equal(draft.groups.length,1);
+  assert.equal(draft.groups[0].options[0].service,'s');
+});
