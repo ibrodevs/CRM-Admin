@@ -74,10 +74,11 @@ function LocationAutocomplete(props) {
 
   useEffect(() => {
     const close = (event) => {
-      if (rootRef.current && !containsFloatingTarget(rootRef.current, event.target)) setOpen(false);
+      if (rootRef.current && !containsFloatingTarget(rootRef.current, event.target)) { setOpen(false); requestRef.current?.abort(); setLoading(false); }
     };
+    document.addEventListener('pointerdown', close, true);
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('mousedown', close); };
   }, []);
 
   useEffect(() => {
@@ -110,12 +111,10 @@ function LocationAutocomplete(props) {
         if (!controller.signal.aborted) {
           setOptions(Array.isArray(payload.results) ? payload.results : []);
           setActive(0);
-          setOpen(true);
         }
       } catch (lookupError) {
         if (lookupError && lookupError.name !== 'AbortError' && !controller.signal.aborted) {
           setOptions([]);
-          setOpen(true);
         }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
