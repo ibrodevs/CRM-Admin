@@ -70,7 +70,9 @@ test('shared side panels never render the workspace draft list', () => {
 
 test('dashboard lists drafts before tasks and metrics; shell scopes other sections', () => {
   const dashboard = readFileSync(new URL('../src/modules/dashboard/ui/DashboardPage.jsx', import.meta.url), 'utf8');
-  assert.ok(dashboard.indexOf('<DraftWorkspaceList />') < dashboard.indexOf('<DashboardKpiGrid'));
+  const draftsIndex = dashboard.indexOf('<DraftWorkspaceList ');
+  assert.ok(draftsIndex >= 0 && draftsIndex < dashboard.indexOf('<DashboardKpiGrid'));
+  assert.match(dashboard, /<DraftWorkspaceList showEmpty/);
   const shell = readFileSync(new URL('../src/application/shell/AppShell.jsx', import.meta.url), 'utf8');
   assert.match(shell, /!\['dashboard', 'offers', 'receipts'\]\.includes\(route\.split\('\/'\)\[0\]\) && <DraftWorkspaceList route=\{route\}/);
 });

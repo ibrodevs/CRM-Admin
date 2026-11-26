@@ -868,7 +868,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
       <div className="dsh scroll">
         <SectionInfo section="dashboard" />
-        <DraftWorkspaceList extraEntries={[...proposalDraftEntries(proposals, proposal => onOpenProposal?.(proposal)), ...extraDrafts]} />
+        <DraftWorkspaceList showEmpty extraEntries={[...proposalDraftEntries(proposals, proposal => onOpenProposal?.(proposal)), ...extraDrafts]} />
         {shift && (
           <div className="card dsh-shift">
             <span className="dsh-shift-dot" />

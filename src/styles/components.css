@@ -3921,7 +3921,7 @@ button.oc-fact:hover{border-color:#d3dbe8;background:#fff}
 @media(max-width:600px){.dsh-interactive-chart .dsh-chart{height:230px}.dsh-chart-periods{width:100%}.dsh-chart-controls>div:last-child{width:100%}.dsh-chart-controls .input{width:100%}.dsh-chart-footer{align-items:flex-start}}
 
 /* Saved forms live on workspace pages, alongside other work items. */
-.draft-workspace{min-width:0;overflow:hidden}
+.draft-workspace{min-width:0;overflow:hidden;flex-shrink:0}
 .draft-workspace-section{margin:16px 28px 0;flex-shrink:0}
 .draft-workspace-head{padding:16px 18px 0}
 .draft-workspace-head h2{margin:0;color:var(--ink);font-size:17px}
