@@ -26,5 +26,5 @@ export function autoProposalOption(offer) {
   const i=offer.itinerary || {}, segments=i.segments || [];
   return { kind:offer.kind, offer:offer.id, currency:offer.price.currency, cost:Number(offer.price.amount), fee:0,
     title:i.property_name || i.description || segments.map(s=>`${s.origin} → ${s.destination}`).join(' · ') || i.name || 'Предложение поставщика',
-    sub:[i.check_in,i.check_out,i.room,i.meal_plan,...segments.map(s=>`${s.airline || ''} ${s.flight_number || ''} · ${s.departure || ''} → ${s.arrival || ''}`)].filter(Boolean).join(' · ') };
+    sub:[i.check_in,i.check_out,i.room,i.meal_plan,...segments.map(s=>[[s.airline,s.flight_number].filter(Boolean).join(' '),[s.departure,s.arrival].filter(Boolean).join(' → ')].filter(Boolean).join(' · '))].filter(Boolean).join(' · ') };
 }

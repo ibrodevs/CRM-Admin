@@ -1,4 +1,5 @@
 'use client';
+import { presentProposalDescription } from '../model/workspace-presentation.js';
 import { readableServiceTitle } from '../model/presentation.js';
 import { Button } from '../../../shared/ui/Button.jsx';
 import { KP_KINDS, chooseOption, chosenTotal, kpMoney, kpTime, optionsOf } from '../model/interactive.js';
@@ -18,7 +19,7 @@ export function ProposalChoices({ payload, ids, packageId, onChange, disabled = 
         const priced = option.price !== '' && option.price != null && Number.isFinite(Number(option.price));
         const changed = option.previous_price != null && Number(option.previous_price) !== Number(option.price);
         return <article className={`kp-option ${selected ? 'is-selected' : ''}`} key={option.id}>
-          <div className="kp-option-main"><span className="kp-kind">{KP_KINDS[option.kind] || 'Услуга'}</span><h3>{readableServiceTitle(option.title)}</h3><p className="kp-description">{option.description || 'Условия уточняются оператором'}</p>
+          <div className="kp-option-main"><span className="kp-kind">{KP_KINDS[option.kind] || 'Услуга'}</span><h3>{readableServiceTitle(option.title)}</h3><p className="kp-description">{presentProposalDescription(option.description) || 'Условия уточняются оператором'}</p>
             {((option.requires || []).length > 0 || (option.excludes || []).length > 0) && <p className="kp-muted">{(option.requires || []).length > 0 && `Вместе с: ${option.requires.map(id => readableServiceTitle(options.find(row => row.id === id)?.title)).join(', ')}. `}{(option.excludes || []).length > 0 && `Не сочетается: ${option.excludes.map(id => readableServiceTitle(options.find(row => row.id === id)?.title)).join(', ')}.`}</p>}
             <div className="kp-freshness"><span>{option.availability === 'available' ? 'Доступно' : option.availability === 'unavailable' ? 'Недоступно' : 'Наличие требует проверки'}</span><span>{kpTime(option.checked_at)}{option.checked_at ? (option.check_source === 'api' ? ' · поставщик' : ' · оператор') : ''}</span></div>
             {option.check_error && <p className="kp-error">{option.check_error}</p>}
