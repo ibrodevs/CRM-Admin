@@ -75,20 +75,21 @@ export function DraftWorkspaceList({ route = 'dashboard', className = '', extraE
   const [pendingDelete, setPendingDelete] = useState(null);
   const [collapsed, setCollapsed] = useDraftState('workspace-display', 'draftsCollapsed', false);
   const [stage, setStage] = useState('');
+  const [category, setCategory] = useState('');
   const [service, setService] = useState('');
   const listId = useId();
   const entries = useMemo(() => [...new Map([...draftsForRoute(store?.workspaces?.() || [], route), ...extraEntries].map(entry => [entry.id, entry])).values()].sort((a, b) => b.savedAt - a.savedAt), [store, status, route, extraEntries]);
-  const visible = filterDrafts(entries, { stage, service });
+  const visible = filterDrafts(entries, { stage, service, category });
   const services = [...new Set(entries.flatMap(entry => entry.services))].sort();
   if (!entries.length) return null;
   return <section className={'card draft-workspace' + (collapsed ? ' is-collapsed' : '') + ' ' + className} aria-label="Черновики">
     <header className="draft-workspace-head"><button type="button" className="draft-workspace-toggle" aria-expanded={!collapsed} aria-controls={listId} onClick={() => { setCollapsed(!collapsed); setPendingDelete(null); }}><span className="draft-workspace-title">Черновики <span>{entries.length}</span></span><span className="draft-workspace-toggle-action">{collapsed ? 'Показать' : 'Свернуть'}<Icon name={collapsed ? 'chevDown' : 'chevUp'} /></span></button>{!collapsed && <p>Сохранённые поиски, формы и предложения. Перед бронированием проверим цену и наличие.</p>}</header>
     <div className="draft-workspace-list" id={listId} hidden={collapsed}>
-      <div className="draft-workspace-filters">
+      <div className="draft-workspace-filters"><Select aria-label="Тип черновика" value={category} onChange={e => setCategory(e.target.value)} options={[{value:'',label:'Все типы'},{value:'services',label:'Подбор услуг'},{value:'proposals',label:'Коммерческие предложения'},{value:'orders',label:'Заказы'},{value:'receipts',label:'Квитанции и импорт'}]} />
         <Select aria-label="Этап черновика" value={stage} onChange={e => setStage(e.target.value)} options={[{ value: '', label: 'Все этапы' }, ...DRAFT_STAGES]} />
         <Select aria-label="Услуга черновика" value={service} onChange={e => setService(e.target.value)} options={[{ value: '', label: 'Все услуги' }, ...services.map(value => ({ value, label: value }))]} />
         <span role="status">Найдено: {visible.length} из {entries.length}</span>
-        {(stage || service) && <button type="button" onClick={() => { setStage(''); setService(''); }}>Сбросить</button>}
+        {(stage || service || category) && <button type="button" onClick={() => { setStage(''); setService(''); setCategory(''); }}>Сбросить</button>}
       </div>
       {!visible.length && <p className="draft-workspace-empty">Нет черновиков по выбранным фильтрам.</p>}
       {visible.map((entry) => <div className="draft-recovery-row" key={entry.id}>

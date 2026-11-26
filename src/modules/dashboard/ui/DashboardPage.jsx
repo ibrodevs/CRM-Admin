@@ -631,7 +631,7 @@ const ORDER_CLOSED_STATUS = ['completed', 'cancelled'];
 const serviceSales = (service) => Number(service.calc?.total ?? service.client_total ?? service.sum ?? 0);
 const serviceProfit = (service) => Number(service.calc?.total ?? service.client_total ?? 0) - Number(service.calc?.tariff ?? service.supplier_cost ?? 0);
 
-function DashboardPage({ role, user, orders = [], orderServices = [], clients = [], companies = [], proposals = [], returns = [], chats = [], dashboard, calendar, finance, resources, incidents = [], slaQueue = [], currentShift, motivationAccruals = [], users = [], suppliers = [], onOpenProposal, onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat, onReload }) {
+function DashboardPage({ role, user, orders = [], orderServices = [], clients = [], companies = [], proposals = [], extraDrafts = [], returns = [], chats = [], dashboard, calendar, finance, resources, incidents = [], slaQueue = [], currentShift, motivationAccruals = [], users = [], suppliers = [], onOpenProposal, onNavigate, onAddOrder, onOpenOrder, onCreateOrder, onOpenChat, onReload }) {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useDraftState('dashboard', "searchOpen", false);
   const [searchMounted, setSearchMounted] = useDraftState('dashboard', "searchMounted", false);
@@ -868,7 +868,7 @@ function DashboardPage({ role, user, orders = [], orderServices = [], clients = 
 
       <div className="dsh scroll">
         <SectionInfo section="dashboard" />
-        <DraftWorkspaceList extraEntries={proposalDraftEntries(proposals, proposal => onOpenProposal?.(proposal))} />
+        <DraftWorkspaceList extraEntries={[...proposalDraftEntries(proposals, proposal => onOpenProposal?.(proposal)), ...extraDrafts]} />
         {shift && (
           <div className="card dsh-shift">
             <span className="dsh-shift-dot" />

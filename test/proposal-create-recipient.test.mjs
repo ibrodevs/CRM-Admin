@@ -16,7 +16,7 @@ function mount() {
   const bindings = { useToast: () => () => {}, useState: initial => state(`hook/${hook++}`, initial), useDraftState: (scope, key, initial) => state(`${scope}/${key}`, initial), useDraftControls: () => ({ clear() {} }), getDefaultCurrency: () => 'RUB', splitProposalRoute: () => ({from:'',to:''}), ufDateIso: v => v, CURRENCIES: [], toLegacyProposal: v => v,
     proposalsApi: { create: async body => { calls.push(['create', body]); return {id:'kp'}; }, detail: async () => ({id:'kp'}) },
     interactiveApi: { get: async () => ({version:1,draft:{}}), save: async (id, version, body) => calls.push(['save',body]) },
-    ...Object.fromEntries(['Drawer','Button','Field','Input','UnifiedBindPicker','UFDateField','ProposalRouteFields','Select','ConfirmDialog'].map(name => [name,name])) };
+    ...Object.fromEntries(['TripDateRangeField','Drawer','Button','Field','Input','UnifiedBindPicker','UFDateField','ProposalRouteFields','Select','ConfirmDialog'].map(name => [name,name])) };
   const mod = new Module(import.meta.filename); mod.require = name => name === 'bindings' ? bindings : require(name);
   mod._compile(babel.transformSync(`import React from 'react';import {${Object.keys(bindings)}} from 'bindings';${source.slice(fn.start, fn.end)};export {KPCreateModal};`, {filename:'create.jsx',presets:['next/babel'],configFile:false,babelrc:false,envName:'test'}).code, import.meta.filename);
   const render = () => { hook = 0; return mod.exports.KPCreateModal({open:true,orders:[],onCreated(){},onClose(){}}); };

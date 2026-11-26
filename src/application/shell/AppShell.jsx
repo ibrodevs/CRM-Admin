@@ -11,7 +11,7 @@ function AppShell({ route, onNavigate, onLogout, role, user, topbar, overlays, c
       <main className="main scroll">
         {topbar}
         <DraftSaveWarning />
-        {route.split('/')[0] !== 'dashboard' && <DraftWorkspaceList route={route} className="draft-workspace-section" />}
+        {!['dashboard', 'offers', 'receipts'].includes(route.split('/')[0]) && <DraftWorkspaceList route={route} className="draft-workspace-section" />}
         {children}
       </main>
       {overlays}

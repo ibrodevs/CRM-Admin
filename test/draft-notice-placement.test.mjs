@@ -72,5 +72,5 @@ test('dashboard lists drafts before tasks and metrics; shell scopes other sectio
   const dashboard = readFileSync(new URL('../src/modules/dashboard/ui/DashboardPage.jsx', import.meta.url), 'utf8');
   assert.ok(dashboard.indexOf('<DraftWorkspaceList />') < dashboard.indexOf('<DashboardKpiGrid'));
   const shell = readFileSync(new URL('../src/application/shell/AppShell.jsx', import.meta.url), 'utf8');
-  assert.match(shell, /!== 'dashboard' && <DraftWorkspaceList route=\{route\}/);
+  assert.match(shell, /!\['dashboard', 'offers', 'receipts'\]\.includes\(route\.split\('\/'\)\[0\]\) && <DraftWorkspaceList route=\{route\}/);
 });

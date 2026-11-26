@@ -13,8 +13,9 @@ function workStage(fields) {
   if (fields.liveOffers?.length || fields.offers?.length || fields.results?.length) return 'results';
   return 'form';
 }
-export function filterDrafts(entries, { stage = '', service = '' } = {}) {
-  return entries.filter(entry => (!stage || (entry.stage || 'form') === stage) && (!service || entry.services.includes(service)));
+export const draftCategory = entry => entry.category || (entry.id?.startsWith('kp/') || entry.type === 'new-proposal' ? 'proposals' : entry.type === 'order' || entry.type === 'new-order' ? 'orders' : 'services');
+export function filterDrafts(entries, { stage = '', service = '', category = '' } = {}) {
+  return entries.filter(entry => (!category || draftCategory(entry) === category) && (!stage || (entry.stage || 'form') === stage) && (!service || entry.services.includes(service)));
 }
 export function hasDraftWork(fields) {
   if (fields.liveOffers?.length || fields.offers?.length || fields.results?.length || fields.selected || fields.workflow || fields.workflowState || fields.proposal) return true;

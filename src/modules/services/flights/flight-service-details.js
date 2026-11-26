@@ -17,7 +17,7 @@ function text(value) {
 
 export function baggageLabel(value) {
   if (!present(value)) return '';
-  const raw = text(value).trim();
+  const raw = text(value).trim().replace(/^(\d+)\s*(?:PC){2,}$/i, '$1PC');
   if (/^(?:[—–-]|N\/?A|UNKNOWN|NOT SPECIFIED)$/i.test(raw)) return '';
   if (value && typeof value === 'object' && !value.description && !value.text) {
     const limits = [value.pieces, value.weight].filter(present);

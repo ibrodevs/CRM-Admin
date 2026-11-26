@@ -15,6 +15,7 @@ export function ProposalChoices({ payload, ids, packageId, onChange, disabled = 
       <header className="kp-section-title"><h2>{group.title}</h2><span className="kp-muted">{group.required && payload.mode !== 'packages' ? 'Обязательный раздел' : 'Варианты услуг'}</span></header>
       <div className="kp-option-list">{group.options.map(option => {
         const selected = ids.includes(option.id);
+        const priced = option.price !== '' && option.price != null && Number.isFinite(Number(option.price));
         const changed = option.previous_price != null && Number(option.previous_price) !== Number(option.price);
         return <article className={`kp-option ${selected ? 'is-selected' : ''}`} key={option.id}>
           <div className="kp-option-main"><span className="kp-kind">{KP_KINDS[option.kind] || 'Услуга'}</span><h3>{readableServiceTitle(option.title)}</h3><p className="kp-description">{option.description || 'Условия уточняются оператором'}</p>
@@ -22,8 +23,8 @@ export function ProposalChoices({ payload, ids, packageId, onChange, disabled = 
             <div className="kp-freshness"><span>{option.availability === 'available' ? 'Доступно' : option.availability === 'unavailable' ? 'Недоступно' : 'Наличие требует проверки'}</span><span>{kpTime(option.checked_at)}{option.checked_at ? (option.check_source === 'api' ? ' · поставщик' : ' · оператор') : ''}</span></div>
             {option.check_error && <p className="kp-error">{option.check_error}</p>}
           </div>
-          <div className="kp-option-actions">{!totalOnly && <><strong className="kp-price">{kpMoney(option.price, payload.currency)}</strong>{changed && <span className="kp-price-change"><del>{kpMoney(option.previous_price, payload.currency)}</del><span>Разница: {Number(option.price) > Number(option.previous_price) ? '+' : ''}{kpMoney(Number(option.price) - Number(option.previous_price), payload.currency)}</span></span>}</>}
-            {payload.mode !== 'packages' && <Button variant={selected ? 'secondary' : 'primary'} size="sm" disabled={disabled || option.availability === 'unavailable'} aria-pressed={selected} onClick={() => toggle(group, option)}>{selected ? 'Выбрано' : 'Выбрать'}</Button>}
+          <div className="kp-option-actions">{!totalOnly && <><strong className="kp-price">{priced ? kpMoney(option.price, payload.currency) : 'Цена не указана'}</strong>{changed && <span className="kp-price-change"><del>{kpMoney(option.previous_price, payload.currency)}</del><span>Разница: {Number(option.price) > Number(option.previous_price) ? '+' : ''}{kpMoney(Number(option.price) - Number(option.previous_price), payload.currency)}</span></span>}</>}
+            {payload.mode !== 'packages' && <Button variant={selected ? 'secondary' : 'primary'} size="sm" disabled={disabled || !priced || option.availability === 'unavailable'} aria-pressed={selected} onClick={() => toggle(group, option)}>{selected ? 'Выбрано' : 'Выбрать'}</Button>}
             {payload.mode === 'packages' && selected && <span className="kp-kind">В выбранном комплекте</span>}
           </div>
         </article>;

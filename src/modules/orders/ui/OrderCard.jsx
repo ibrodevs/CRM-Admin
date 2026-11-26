@@ -2022,6 +2022,7 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd, onO
   const [rules, setRules] = useState(null);
   const [rulesError, setRulesError] = useState('');
   const [rulesBusy, setRulesBusy] = useState(false);
+  const rulesCache = useRef(new Map());
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [perPaxOpen, setPerPaxOpen] = useState(false);
   const fareSelectorRef = useRef(null);
@@ -2039,34 +2040,38 @@ function FreeBookingFlightFarePanel({ offer, offers, params, onClose, onAdd, onO
   const legs = (selected.journeys || [selected.out]).map((leg) => ({ airline: selected.airline, leg, currency: selected.currency, supplier: selected.supplier }));
   const routeTitle = (selected.itinerary?.segments || []).map((s) => `${s.origin} → ${s.destination}`).join(' · ');
   const total = selected.fare + selected.fee;
-  const inspect = async (fare) => {
+  const inspect = async (fare, { open = true } = {}) => {
     const request = ++rulesRequest.current;
     rulesAbort.current?.abort();
+    if (rulesCache.current.has(fare.id)) { setRules(rulesCache.current.get(fare.id)); setRulesError(''); setRulesBusy(false); if (open) setInfoFare(fare); return; }
     const controller = new AbortController();
     rulesAbort.current = controller;
     const updateOffer = (raw) => {
       if (!raw) return;
       const updated = { ...liveFlightOffer(raw), backendOffer: raw };
-      setInfoFare({ ...fare, ...freeFlightFareDetails(updated), offer: updated, priceChanged: fare.priceChanged || updated.fare + updated.fee !== fare.offer.fare + fare.offer.fee || updated.currency !== fare.offer.currency });
+      if (open) setInfoFare({ ...fare, ...freeFlightFareDetails(updated), offer: updated, priceChanged: fare.priceChanged || updated.fare + updated.fee !== fare.offer.fare + fare.offer.fee || updated.currency !== fare.offer.currency });
       onOfferUpdated?.(updated);
     };
-    setInfoFare(fare); setRules(null); setRulesError(''); setRulesBusy(true);
+    if (open) setInfoFare(fare); setRules(null); setRulesError(''); setRulesBusy(true);
     try {
       const data = await servicesApi.fareRules(fare.id, controller.signal);
       if (request === rulesRequest.current) {
         setRules(data.fare_rules ?? null);
+        rulesCache.current.set(fare.id, data.fare_rules ?? null);
         updateOffer(data.offer);
       }
     }
     catch (error) { if (request === rulesRequest.current) { updateOffer(error.offer); setRulesError(['SELECT_NOT_CONFIRMED', 'RATE_UNAVAILABLE', 'OFFER_EXPIRED', 'AVAILABILITY_CONFLICT'].includes(error.code) ? 'Поставщик не подтвердил актуальность тарифа. Повторите поиск или выберите другой вариант.' : error.message || 'Не удалось загрузить условия тарифа'); } }
     finally { if (request === rulesRequest.current) setRulesBusy(false); }
   };
+  useEffect(() => { if (tier) inspect(tier, { open: false }); }, [selected.id]);
   return <>
     <StackPanel closeOnBackdrop className="free-booking flight-fare-drawer" title="Класс и тариф по рейсу" width="min(1180px,96vw)" onClose={onClose}
       footer={<><div className="flight-fare-total"><span>Итого за всех · пассажиров: {extrasPax.length}</span><b>{money(total, selected.currency)}</b><small>{classDetails.cabin} · {tier.name}</small><small>Бронь ещё не создана</small></div><Button disabled={searchEditing || searching} variant="secondary" icon="users" onClick={() => setPerPaxOpen(true)}>Пассажиры</Button>{selectionMode === 'proposal' ? <Button disabled={searchEditing || searching} icon="plus" onClick={() => onAdd(freeFlightDraft(selected, params))}>Добавить в КП</Button> : <><Button disabled={searchEditing || searching} variant="secondary" icon="plus" onClick={() => onAdd(freeFlightDraft(selected, params))}>В подборку</Button><Button disabled={searchEditing || searching} icon="chevRight" onClick={() => onAdd(freeFlightDraft(selected, params), { proceed: true })}>К оформлению</Button></>}</>}>
       <div className="free-booking"><FlightSearchHeader title={selected.airline} subtitle={routeTitle} supplier={selected.supplier} values={params} busy={searching} onSearch={onSearchStay} onEditingChange={setSearchEditing} renderAirport={(label, value, onChange) => <AirportField label={label} value={value} onChange={onChange} />} renderPassengers={(draft, update) => <FreeBookingPaxField pax={draft.pax} setPax={(pax) => update({ pax })} cabin={draft.cabin} setCabin={(cabin) => update({ cabin })} options={draft} setOptions={update} />}>
         <div className="card card-pad flight-fare-itinerary"><div className="flight-fare-itinerary-head"><AirlineLogo code={selected.airline} size="sm" /><b>{routeTitle}</b><span className="pill pill-gray" style={{ marginLeft: 'auto' }}>{classDetails.cabin} · класс {clsCode}</span></div>{legs.map((leg, i) => <LegTimeline key={i} opt={leg} title={legs.length > 1 ? `Сегмент ${i + 1}` : null} />)}</div>
       <FlightExtrasPreview offer={selected} onOpen={() => setExtrasOpen(true)} />
+      <div className="flight-auto-rules" role="status"><span>{rulesBusy ? 'Загружаем подробные правила выбранного тарифа…' : rulesError || (rules ? 'Подробные правила выбранного тарифа загружены.' : 'Поставщик не передал подробные правила. Уточните условия до бронирования.')}</span><Button variant="secondary" size="sm" disabled={rulesBusy} onClick={() => inspect(tier)}>{rulesError ? 'Повторить загрузку' : 'Открыть правила'}</Button></div>
       <div ref={fareSelectorRef}><FlightFareSelector classes={classes} classCode={clsCode} cabin={classDetails.cabin} tiers={tiers} selectedId={selected.id} currency={selected.currency} passengerCount={extrasPax.length} onClassChange={changeClass} onSelect={setFareId} onInspect={inspect} /></div>
 
       </FlightSearchHeader></div>
@@ -2238,20 +2243,20 @@ function FreeBookingFlightPanel({ params, setParams, onAdd, selectionMode = 'boo
 }
 
 // Specialized forms and category order from 82f6c623. Keep current Hotelbook/data logic.
-function FreeBookingPanel({ kind, setKind, aviaParams, setAviaParams, onAddAvia, onAddOther, selectionMode = 'booking' }) {
+function FreeBookingPanel({ kind, setKind, aviaParams, setAviaParams, onAddAvia, onAddOther, selectionMode = 'booking', allowedKinds, tripContext }) {
   const [visited, setVisited] = useState(() => new Set([kind]));
   useEffect(() => { setVisited((current) => current.has(kind) ? current : new Set([...current, kind])); }, [kind]);
   const currency = resolveCurrency(aviaParams.currency);
   const select = (next) => { setVisited((current) => new Set([...current, next])); setKind(next); };
   return <div className="free-booking free-booking-search fade-in">
     <div className="svcp-cattabs">
-      {ADD_SVC_CATS.map((cat) => <button type="button" key={cat.kind} className={'svcp-cattab' + (kind === cat.kind ? ' active' : '')} onClick={() => select(cat.kind)}>
+      {ADD_SVC_CATS.filter(cat => !allowedKinds?.length || allowedKinds.includes(cat.kind)).map((cat) => <button type="button" key={cat.kind} className={'svcp-cattab' + (kind === cat.kind ? ' active' : '')} onClick={() => select(cat.kind)}>
         {cat.img ? <img className="svcp-cattab-img" src={cat.img} alt={cat.label} /> : <Icon name={cat.icon} />}{cat.label}
       </button>)}
     </div>
     {ADD_SVC_CATS.filter((cat) => visited.has(cat.kind)).map((cat) => <div className="free-booking-service-pane" key={cat.kind} hidden={kind !== cat.kind}>
       {cat.kind === 'Авиа' ? <FreeBookingFlightPanel selectionMode={selectionMode} params={aviaParams} setParams={setAviaParams} onAdd={onAddAvia} />
-        : cat.kind === 'Гостиница' ? <HotelPicker currency={currency} onApply={(offer) => onAddOther(offer, cat.kind)} onCancel={() => {}} />
+        : cat.kind === 'Гостиница' ? <HotelPicker initialSearch={tripContext ? { destination:tripContext.route?.split('→').at(-1)?.trim(), start:tripContext.travel_start, end:tripContext.travel_end } : undefined} currency={currency} onApply={(offer) => onAddOther(offer, cat.kind)} onCancel={() => {}} />
         : cat.kind === 'ЖД' ? <FreeBookingRailFlow currency={currency} onAdd={onAddOther} />
         : cat.kind === 'Аэроэкспресс' ? <FreeBookingAeroAddFlow onAdd={onAddOther} />
         : cat.routeKey ? <FreeBookingServiceAddFlow routeKey={cat.routeKey} currency={currency} paxCount={1} onAdd={onAddOther} />

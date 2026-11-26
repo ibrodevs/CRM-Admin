@@ -190,7 +190,7 @@ function HotelFilters({ stars, toggleStar, starCounts, districts, distSel, toggl
 
 
 
-function HotelPicker({ participants, group = false, onApply, onCancel, currency, orderId }) {
+function HotelPicker({ participants, group = false, onApply, onCancel, currency, orderId, initialSearch }) {
   const panelVisible = usePanelVisibility();
   const toast = useToast();
   const [crmGuests, setCrmGuests] = useDraftState(`HotelPicker/${orderId || 'free'}`, 'crmGuests', []);
@@ -206,11 +206,11 @@ function HotelPicker({ participants, group = false, onApply, onCancel, currency,
   const PAX = hasOrderGuests ? mergeHotelGuests(participants || [], addedGuests) : crmGuests;
 
 
-  const [dest, setDest] = useDraftState(`HotelPicker/${orderId || 'free'}`, "dest", '');
+  const [dest, setDest] = useDraftState(`HotelPicker/${orderId || 'free'}`, "dest", initialSearch?.destination || '');
   const [destLocation, setDestLocation] = useDraftState(`HotelPicker/${orderId || 'free'}`, "destLocation", null);
   const [radius, setRadius] = useDraftState(`HotelPicker/${orderId || 'free'}`, "radius", '2 км');
-  const [checkin, setCheckin] = useDraftState(`HotelPicker/${orderId || 'free'}`, "checkin", null);
-  const [checkout, setCheckout] = useDraftState(`HotelPicker/${orderId || 'free'}`, "checkout", null);
+  const [checkin, setCheckin] = useDraftState(`HotelPicker/${orderId || 'free'}`, "checkin", initialSearch?.start ? new Date(`${initialSearch.start}T12:00:00`) : null);
+  const [checkout, setCheckout] = useDraftState(`HotelPicker/${orderId || 'free'}`, "checkout", initialSearch?.end ? new Date(`${initialSearch.end}T12:00:00`) : null);
   const [earlyArrivalTime, setEarlyArrivalTime] = useDraftState(`HotelPicker/${orderId || 'free'}`, "earlyArrivalTime", '');
   const [lateDepartureTime, setLateDepartureTime] = useDraftState(`HotelPicker/${orderId || 'free'}`, "lateDepartureTime", '');
   const [occupancyRooms, setOccupancyRooms] = useDraftState(`HotelPicker/${orderId || 'free'}`, "occupancyRooms", () => Array.from({ length: group ? Math.max(1, Math.ceil(PAX.length / 2)) : 1 }, (_, i) => ({ adults: group ? Math.max(1, Math.min(2, PAX.length - i * 2)) : 2, childrenAges: [] })));

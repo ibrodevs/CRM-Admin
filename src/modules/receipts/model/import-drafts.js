@@ -84,3 +84,9 @@ export function receiptImportDraftTitle(draft) {
   if (names.length === 1) return names[0];
   return `${names[0]} и ещё ${names.length - 1}`;
 }
+
+export function receiptDashboardDrafts(documents = [], storage, onOpen) {
+  const imports = readReceiptImportDrafts(storage).map(draft => ({ id:`receipt-import/${draft.id}`, category:'receipts', title:receiptImportDraftTitle(draft), stage:'form', services:['Импорт документов'], savedAt:new Date(draft.savedAt).getTime(), count:draft.files.length, canDelete:false, onContinue:()=>onOpen({importId:draft.id}) }));
+  const receipts = documents.filter(row=>row.isReceiptDraft || row.metadata?.receipt_import?.stage==='draft').map(row=>({id:`receipt/${row.serverId || row.id}`,category:'receipts',title:row.name || row.title || row.document_number || 'Квитанция',stage:'form',services:['Редактор квитанций'],savedAt:new Date(row.updated_at || row.created_at || row.date).getTime(),canDelete:false,onContinue:()=>onOpen({documentId:row.serverId || row.id})}));
+  return [...imports,...receipts];
+}

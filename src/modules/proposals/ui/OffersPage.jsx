@@ -1,3 +1,7 @@
+import { proposalSearchPlan } from '../model/auto-search.js';
+import { ProposalComposition } from './ProposalComposition.jsx';
+import { PICKER_KIND } from '../model/workspace-presentation.js';
+import { TripDateRangeField } from '../../../shared/ui/DateFields.jsx';
 import { UnifiedBindPicker } from '../../clients/index.js';
 import { DraftCloseDialog } from '../../../shared/ui/DraftCloseDialog.jsx';
 import { DraftWorkspaceList, DraftScope, useDraftState, useDraftControls, useDraftStatus } from '../../../shared/drafts/Drafts.jsx';
@@ -359,11 +363,15 @@ function KpServicePicker({ scopeId = 'standalone', ...props }) {
   return <DraftScope name={`kp-service-picker/${scopeId}`}><KpServicePickerContent {...props} scopeId={scopeId} /></DraftScope>;
 }
 
-function KpServicePickerContent({ participants = [], currency = getDefaultCurrency(), scopeId, items = [], onRemove, onEdit, onAdd, onClose, onSaveDraft, onDiscardSelection }) {
+function KpServicePickerContent({ participants = [], currency = getDefaultCurrency(), scopeId, items = [], initialKind, allowedKinds, tripContext, onRemove, onEdit, onAdd, onClose, onSaveDraft, onDiscardSelection }) {
   const toast = useToast();
-  const [kind, setKind] = useDraftState('picker', 'kind', 'Авиа');
+  const [kind, setKind] = useDraftState('picker', 'kind', initialKind || 'Авиа');
   const defaultParams = { trip: 'rt', from: 'FRU', to: 'IST', depDate: null, retDate: null, pax: { adt: 1, chd: 0, infNoSeat: 0, infSeat: 0, special: {}, subsidized: {} }, currency, cabin: 'Эконом', baggage: false, flex: false, direct: false, airline: '', ...(typeof PAX_DEFAULT_OPTIONS !== 'undefined' ? PAX_DEFAULT_OPTIONS : {}) };
+  if (tripContext?.route && tripContext.travel_start && tripContext.travel_end) {
+    try { const planned = proposalSearchPlan({ ...tripContext, groups:[{kind:'avia'}] }).find(row => row.kind === 'avia'); if (planned?.criteria) Object.assign(defaultParams, { from:planned.criteria.origin, to:planned.criteria.destination, depDate:new Date(`${tripContext.travel_start}T12:00:00`), retDate:new Date(`${tripContext.travel_end}T12:00:00`) }); } catch { /* Keep the editable mask when route is incomplete. */ }
+  }
   const [aviaParams, setAviaParams] = useDraftState('picker', 'aviaParams', defaultParams);
+  useEffect(() => { if (initialKind) setKind(initialKind); }, [initialKind]);
   const [added, setAdded] = useState(0);
   const [confirmClose, setConfirmClose] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -401,10 +409,10 @@ function KpServicePickerContent({ participants = [], currency = getDefaultCurren
         <div style={{ flex: 1, alignSelf: 'center', color: 'var(--muted)', fontSize: 14 }}>Всего в КП: <b style={{ color: 'var(--ink)' }}>{items.length}</b></div>
         <Button icon="check" onClick={requestClose}>Готово</Button>
       </>}>
-      {items.length > 0 && <details className="kp-composition" open><summary>Состав КП · {items.length} {items.length === 1 ? 'услуга' : items.length < 5 ? 'услуги' : 'услуг'}</summary><div>{items.map(item => <div className="kp-composition-row" key={item.id}><span><strong>{readableServiceTitle(item.title)}</strong><small>{item.description || item.kind}</small></span><b>{kpM(Number(item.price), currency)}</b>{onEdit && <Button variant="secondary" size="sm" onClick={() => onEdit(item.id)}>Изменить</Button>}{onRemove && <Button variant="ghost" size="sm" onClick={() => onRemove(item.id)}>Убрать</Button>}</div>)}</div></details>}
+      <ProposalComposition items={items} currency={currency} onEdit={onEdit} onRemove={onRemove} />
       <p className="kp-picker-hint">Выберите услуги через общую форму поиска. Они добавятся в черновик КП; бронирование не запускается.</p>
 
-        <FreeBookingPanel selectionMode="proposal" kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
+        <FreeBookingPanel selectionMode="proposal" tripContext={tripContext} allowedKinds={allowedKinds} kind={kind} setKind={setKind} aviaParams={aviaParams} setAviaParams={setAviaParams}
           onAddAvia={item => add(item, 'Авиа')} onAddOther={(item, serviceKind) => add(item, serviceKind)} />
       <DraftCloseDialog open={confirmClose} title="Закрыть подбор для КП?" description="Сохранить параметры поиска и изменения предложения перед закрытием?"
         saveDisabled={saving || draftStatus.failed}
@@ -1167,19 +1175,19 @@ function KPCreateModal({ open, onClose, onCreated, orders = [] }) {
     <div className="kp-workspace">
       <section className="kp-section"><h2>Клиент и поездка</h2>
         <div className="kp-form-grid">
+          <div className="kp-form-full"><Field label="Название предложения" required error={errors.title}><Input error={errors.title} aria-invalid={Boolean(errors.title)} locationAutocomplete={false} value={title} maxLength={255} onChange={e => setTitle(e.target.value)} placeholder={route || 'Например: Командировка в Стамбул'} /></Field></div>
           <div className="kp-recipient-field">
             <Field label="Для кого предложение" required error={errors.recipient}>
               <Button type="button" className="kp-recipient-button" variant="secondary" size="field" icon={selected ? 'briefcase' : recipientRef?.type === 'company' ? 'building' : 'user'} iconRight="chevRight" aria-invalid={Boolean(errors.recipient)} disabled={busy} onClick={() => setEntityPickerOpen(true)}>
                 <span className="kp-recipient-value"><span>{recipient || 'Выбрать клиента, юрлицо или заказ'}</span>{selected && <small>Заказ {selected.no}</small>}</span>
               </Button>
-              <div className="kp-recipient-actions">{selected ? <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={unlinkOrder}>Отвязать заказ</Button> : <span className="kp-field-note">Можно создать без привязки к заказу</span>}<Button type="button" variant="ghost" size="sm" disabled={busy} aria-expanded={manualRecipient} onClick={() => setManualRecipient(value => !value)}>{manualRecipient ? 'Скрыть ручной ввод' : 'Указать получателя вручную'}</Button></div>
-              {manualRecipient && <Input aria-label="Получатель вручную" error={errors.recipient} locationAutocomplete={false} value={recipient} maxLength={255} onChange={e => { setRecipient(e.target.value); setRecipientRef(null); unlinkOrder(); setErrors(current => ({ ...current, recipient: '' })); }} placeholder="Имя клиента или название компании" />}
+              <div className="kp-recipient-actions">{selected ? <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={unlinkOrder}>Отвязать заказ</Button> : <span className="kp-field-note">Можно создать без привязки к заказу</span>}<Button type="button" variant="ghost" size="sm" disabled={busy} aria-expanded={manualRecipient} onClick={() => setManualRecipient(value => !value)}>{manualRecipient ? 'Скрыть ручной ввод' : 'Получатель вне картотеки'}</Button></div>
+              {manualRecipient && <><p className="kp-field-note">Только подпись в КП. Карточка клиента и связь с заказом не создаются. Для учёта клиента выберите его из картотеки.</p><Input aria-label="Получатель вручную" error={errors.recipient} locationAutocomplete={false} value={recipient} maxLength={255} onChange={e => { setRecipient(e.target.value); setRecipientRef(null); unlinkOrder(); setErrors(current => ({ ...current, recipient: '' })); }} placeholder="Имя или компания для подписи КП" /></>}
             </Field>
           </div>
           <ProposalRouteFields errors={errors} value={route} onChange={setRoute} />
-          <UFDateField label="Начало поездки" value={start} onChange={setStart} minDate={new Date()} />
-          <UFDateField error={errors.end} label="Окончание поездки" value={end} onChange={setEnd} minDate={start || new Date()} />
-          <Field label="Название предложения" required error={errors.title}><Input error={errors.title} aria-invalid={Boolean(errors.title)} locationAutocomplete={false} value={title} maxLength={255} onChange={e => setTitle(e.target.value)} placeholder={route || 'Например: Командировка в Стамбул'} /></Field>
+          <Field label="Даты поездки" error={errors.end}><TripDateRangeField startVal={start} endVal={end} error={errors.end} onChange={(from, to) => { setStart(from); setEnd(to); }} placeholder="Начало — окончание" /></Field>
+
           <Field label="Валюта предложения"><Select value={currency} options={CURRENCIES.map(item => ({ value: item.code, label: `${item.code} · ${item.name}` }))} onChange={e => setCurrency(e.target.value)} /></Field>
         </div>
       </section>
@@ -1552,7 +1560,7 @@ function OffersRegistry({ onOpenOrder, intent, onConsume, initialProposals = [],
         onSaved={async () => {
           const saved = toLegacyProposal(await proposalsApi.detail(editTarget.serverId), orders);
           setProposals((items) => items.map((item) => item.serverId === saved.serverId ? saved : item));
-          setEditTarget(saved);
+          setEditTarget(current => current?.serverId === saved.serverId ? saved : current);
           onChanged?.(saved);
         }}
         onSend={(proposal) => { setEditTarget(null); setSendTarget(proposal); }} />}

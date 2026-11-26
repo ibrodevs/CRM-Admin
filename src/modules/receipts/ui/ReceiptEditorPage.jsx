@@ -4114,7 +4114,7 @@ function ReceiptImportModal({ open, onClose, onDone, initialDraft, initialFiles 
   );
 }
 
-function ReceiptEditorPage({ documents = [], orders = [], services = [], companies = [], clients = [], onChanged, onOpenOrder, onCreateOrder }) {
+function ReceiptEditorPage({ intent, onConsume, documents = [], orders = [], services = [], companies = [], clients = [], onChanged, onOpenOrder, onCreateOrder }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(null);
@@ -4209,6 +4209,11 @@ function ReceiptEditorPage({ documents = [], orders = [], services = [], compani
         sourceOriginalUrl: document.serverId ? documentsApi.supplierSourcePreviewUrl(document.serverId) : document.supplierBlank?.sourceOriginalUrl,
       };
     });
+  useEffect(() => {
+    if (intent?.type !== 'receipt-draft') return;
+    if (intent.importId) { continueImportDraft(intent.importId); onConsume?.(); }
+    else if (intent.documentId) { const document = all.find(row => String(row.serverId || row.id) === String(intent.documentId)); if (document) { editDirty.current = false; setEdit(document); onConsume?.(); } }
+  }, [intent, documents]);
   const receipts = all.filter((document) => !document.isReceiptDraft).filter((document) => {
     const details = receiptDetailsLines(document.editorType, document.parsed).join(' ');
     return !q || `${document.no} ${document.name} ${document.order} ${document.participant} ${details}`.toLowerCase().includes(q.toLowerCase());
